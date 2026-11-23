@@ -1,4 +1,4 @@
-import torch
+import torch, os
 import matplotlib.pyplot as plt
 from main_model import ECAPAModel
 from helperFiles.dataLoader import train_loader
@@ -115,17 +115,13 @@ if __name__ == "__main__":
     - Generate and save a visualization of attention overlayed on mel spectrogram
     """
     model = ECAPAModel(C=1024, m=0.2, s=30, n_class=24).to(device)
-    try:
-        model.load_state_dict(
-            torch.load("/home/btech10154.22/Speaker_recognition-main/exps/exp1/model4_0005.model", map_location=device)
-        )
-    except RuntimeError as e:
-        print(f"Error loading model state_dict: {e}")
-        print("Attempting to load with strict=False (ignoring mismatched keys in feature extractor)")
-        model.load_state_dict(
-            torch.load("/home/btech10154.22/Speaker_recognition-main/exps/exp1/model4_0005.model", map_location=device),
-            strict=False
-        )
+    ckpt_path = "exps/exp1/model_0015.model"
+    if os.path.exists(ckpt_path):
+        try:
+            model.load_state_dict(torch.load(ckpt_path, map_location=device))
+        except RuntimeError as e:
+            print(f"Loading partial keys: {e}")
+            model.load_state_dict(torch.load(ckpt_path, map_location=device), strict=False)
 
     dataset = train_loader()
     trainDataLoader = torch.utils.data.DataLoader(
@@ -138,8 +134,9 @@ if __name__ == "__main__":
         persistent_workers=False
     )
 
+    os.makedirs("Images", exist_ok=True)
     visualize_attention_from_loader(
         model,
         trainDataLoader,
-        save_path="/home/btech10154.22/Speaker_recognition-main/Images/ecapa_attention_output.png"
+        save_path="Images/ecapa_attention_output.png"
     )

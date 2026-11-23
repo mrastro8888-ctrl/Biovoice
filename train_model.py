@@ -55,7 +55,7 @@ NUM_FRAMES = cfg['training']['NUM_FRAMES']
 MAX_EPOCH = cfg['training']['MAX_EPOCH']
 BATCH_SIZE = cfg['training']['BATCH_SIZE']
 N_CLASS = cfg['training']['N_CLASS']
-SAVE_PATH = cfg['paths']['SAVE_PATH']
+SAVE_PATH = cfg['paths'].get('model_save_path', 'exps/exp1')
 TEST_STEP = cfg['training']['TEST_STEP']
 
 # Ensure save path exists
@@ -100,7 +100,7 @@ if __name__ == '__main__':
         print(f"Epoch {epoch}: Loss {loss.item():.5f}, LR {lr:.6f}, ACC {acc.item():.2f}%")
 
         if epoch % TEST_STEP == 0:
-            model_save_path = f"{SAVE_PATH}/birdModel_{epoch:04d}.model"
+            model_save_path = f"{SAVE_PATH}/model_{epoch:04d}.model"
             s.save_parameters(model_save_path)
             EER = s.eval_network()[0]
             EERs.append(EER)

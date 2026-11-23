@@ -81,8 +81,8 @@ class ECAPAModel(nn.Module):
         sys.stdout.write("\n")
         return loss / num, lr, top1 / index * len(labels)
 
-    def eval_network(self, eval_list="/home/btech10154.22/Speaker_recognition-main/params/train_list.txt",
-                     eval_path="/home/btech10154.22/vox_indian_split"):
+    def eval_network(self, eval_list="params/eval_list.txt",
+                     eval_path="vox_indian_split"):
         """
         Evaluates the model using verification pairs (trial list).
 

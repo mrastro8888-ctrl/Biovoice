@@ -54,8 +54,6 @@ if ENGINE_MODE == "none":
     CHECKPOINT_PATHS = [
         "exps/exp1/model_0015.model",
         "exps/exp1/best_model.model",
-        "exps/exp1/birdModel_0015.model",
-        "Speaker_recognition-main/exps/exp1/model_0015.model",
     ]
     for ckpt in CHECKPOINT_PATHS:
         if os.path.exists(ckpt):
