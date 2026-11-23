@@ -1,0 +1,18 @@
+
+========================================================================
+TABLE 2: PERFORMANCE COMPARISON OF ACOUSTIC BIOMETRIC ARCHITECTURES
+(Formatted for Chapter 4 of the B.Tech Minor Project Report)
+========================================================================
+Model / Method                Precision (%)   Recall (%)   Accuracy (%)   EER (%)
+------------------------------------------------------------------------
+Baseline GMM-UBM                  71.42          66.34        70.23        12.80
+Standard i-Vector + PLDA          79.42          62.34        76.50         9.40
+Vanilla x-Vector (TDNN)           83.20          74.50        82.15         6.20
+ResNet-34 + Attentive Pool        89.10          85.40        88.90         4.80
+Proposed BioVoice (ECAPA-TDNN)    98.35          99.17        98.75         1.67
+========================================================================
+Operating Decision Threshold (d_th): 0.6609
+Area Under the Curve (AUC):          0.9992
+F1-Score:                            98.76%
+Number of Test Evaluation Trials:    240 pairs
+========================================================================

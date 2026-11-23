@@ -1,0 +1,23 @@
+# Python virtual environments & IDEs
+/.venv/
+/venv/
+/env/
+.idea/**
+.vscode/**
+/__pycache__/
+*.pyc
+
+# Model checkpoints & large binary weights (>100MB exceeds GitHub push limit)
+*.model
+*.pt
+*.pth
+*.ckpt
+pretrained_models/
+exps/**/*.model
+
+# Temporary experiment logs & scratch files
+/placeholder.py
+helperFiles/train_list0.txt
+params/train_listBrid.txt
+training_dynamics_plot.png
+test.py
