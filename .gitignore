@@ -21,3 +21,5 @@ helperFiles/train_list0.txt
 params/train_listBrid.txt
 training_dynamics_plot.png
 test.py
+~$*
+*.tmp
