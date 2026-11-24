@@ -1,13 +1,13 @@
 """
 BioVoice: Deep Acoustic Biometric Authentication System
-Interactive Multi-Mode Verification & Identification Web Interface
+Interactive Multi-Mode Verification & Identification Web Interface (localhost)
 
-Key Upgrades:
-1. Automatic Audio Resampling: Converts browser microphone (44.1k/48k) to 16 kHz.
-2. Production Pre-trained ECAPA-TDNN Engine: Uses official VoxCeleb-trained ECAPA-TDNN 
-   via SpeechBrain (or local checkpoint) for true speaker discrimination.
-3. Acoustic Feature Fallback: Ensures different speakers are never falsely marked similar
-   even if offline.
+Key Architecture & Processing:
+1. Automatic Audio Resampling: Resamples input audio from browser mic / files to 16 kHz mono.
+2. Deep ECAPA-TDNN Engine:
+   - Active Engine: SpeechBrain ECAPA-TDNN (pretrained on VoxCeleb, 192-d embeddings)
+   - Custom Model Architecture: BioVoice ECAPA-TDNN in base_model.py / main_model.py (256-d embeddings via fc6: 3072 -> 256)
+3. Zero Simulation: Real inference over real audio spectrograms.
 """
 
 import os
@@ -32,26 +32,30 @@ print(f"[BioVoice] Compute device: {device}")
 sb_model = None
 local_encoder = None
 ENGINE_MODE = "none"
+ENGINE_DISPLAY_NAME = "None"
+ENABLE_ACOUSTIC_FALLBACK = False  # Explicit off-by-default flag
 
-# A. Try loading official pre-trained SpeechBrain ECAPA-TDNN (Gold Standard)
+# A. Load official pre-trained SpeechBrain ECAPA-TDNN (VoxCeleb, 192-d embeddings)
 try:
     from speechbrain.inference.speaker import SpeakerRecognition
-    print("[BioVoice] Initializing official pre-trained ECAPA-TDNN (VoxCeleb)...")
+    print("[BioVoice] Initializing SpeechBrain ECAPA-TDNN (pretrained on VoxCeleb)...")
     sb_model = SpeakerRecognition.from_hparams(
         source="speechbrain/spkrec-ecapa-voxceleb",
         savedir="pretrained_models/spkrec-ecapa-voxceleb",
         run_opts={"device": str(device)}
     )
     ENGINE_MODE = "speechbrain_ecapa"
-    print("[BioVoice] Pre-trained ECAPA-TDNN successfully loaded!")
+    ENGINE_DISPLAY_NAME = "SpeechBrain ECAPA-TDNN pretrained on VoxCeleb"
+    print(f"[BioVoice] Active Engine: {ENGINE_DISPLAY_NAME}")
 except Exception as e:
     print(f"[BioVoice] SpeechBrain model not available ({e}). Checking local checkpoints...")
 
-# B. Try loading local custom checkpoint if available
+# B. Try loading local custom checkpoint if available (256-d embeddings)
 if ENGINE_MODE == "none":
     from base_model import ECAPA_TDNN
     local_encoder = ECAPA_TDNN(C=1024).to(device)
     CHECKPOINT_PATHS = [
+        "exps/exp1/model_0001.model",
         "exps/exp1/model_0015.model",
         "exps/exp1/best_model.model",
     ]
@@ -59,21 +63,33 @@ if ENGINE_MODE == "none":
         if os.path.exists(ckpt):
             try:
                 st = torch.load(ckpt, map_location=device)
-                if "speaker_encoder" in st:
-                    local_encoder.load_state_dict(st["speaker_encoder"])
-                elif isinstance(st, dict):
-                    local_encoder.load_state_dict(st, strict=False)
+                new_st = {}
+                # Strip prefix if saved as speaker_encoder.*
+                for k, v in st.items():
+                    if k.startswith("speaker_encoder."):
+                        new_st[k.replace("speaker_encoder.", "", 1)] = v
+                    else:
+                        new_st[k] = v
+                local_encoder.load_state_dict(new_st, strict=False)
+                local_encoder.eval()
                 ENGINE_MODE = "local_checkpoint"
+                ENGINE_DISPLAY_NAME = f"BioVoice Custom ECAPA-TDNN (Checkpoint: {os.path.basename(ckpt)}, 256-D)"
                 print(f"[BioVoice] Loaded local trained checkpoint: {ckpt}")
                 break
             except Exception as err:
                 print(f"[BioVoice] Failed loading {ckpt}: {err}")
 
-# C. Acoustic Feature Fallback Engine (Zero Retraining / Offline Mode)
+# C. Off-by-default fallback check (Never present fallback as ECAPA)
 if ENGINE_MODE == "none":
-    ENGINE_MODE = "acoustic_formant_engine"
-    print("[BioVoice] Note: Running with Acoustic Formant & Cepstral Embedding Engine.")
-    print("[BioVoice] Tip: Run 'pip install speechbrain' to enable deep neural VoxCeleb weights.")
+    if ENABLE_ACOUSTIC_FALLBACK:
+        ENGINE_MODE = "acoustic_formant_fallback"
+        ENGINE_DISPLAY_NAME = "Acoustic Feature Fallback (Pitch/Formants - NOT ECAPA)"
+        print(f"[BioVoice] WARNING: Running with {ENGINE_DISPLAY_NAME}")
+    else:
+        raise RuntimeError(
+            "No deep neural ECAPA-TDNN model available! Please install speechbrain "
+            "('pip install speechbrain') or ensure a valid checkpoint exists in exps/exp1/."
+        )
 
 GALLERY_DB_PATH = "params/enrolled_speakers.json"
 os.makedirs("params", exist_ok=True)
@@ -84,8 +100,8 @@ os.makedirs("params", exist_ok=True)
 # ──────────────────────────────────────────────────────────────────────────────
 def load_and_preprocess_audio(audio_path, target_sr=16000):
     """
-    Critical Fix: Loads audio and resamples 44.1k/48k browser mic input to 16 kHz.
-    Trims silent pauses so silence does not corrupt speaker identity.
+    Loads audio and resamples 44.1k/48k browser mic input to 16 kHz mono.
+    Trims silence using energy threshold so silence does not corrupt speaker identity.
     """
     audio, sr = librosa.load(audio_path, sr=target_sr, mono=True)
     # Trim silence (energy cutoff top_db = 22)
@@ -101,13 +117,14 @@ def load_and_preprocess_audio(audio_path, target_sr=16000):
 
 def extract_speaker_embedding(audio_path):
     """
-    Extracts a normalized 192-d or 128-d acoustic voiceprint vector.
-    Guarantees different speakers have distinctly low similarity.
+    Extracts a normalized acoustic voiceprint vector.
+    - SpeechBrain ECAPA-TDNN: 192-d embedding vector.
+    - Custom BioVoice ECAPA-TDNN (base_model.py): 256-d embedding vector (fc6: 3072 -> 256).
     """
     audio, sr = load_and_preprocess_audio(audio_path, target_sr=16000)
 
     if ENGINE_MODE == "speechbrain_ecapa":
-        # SpeechBrain Deep ECAPA-TDNN
+        # SpeechBrain Deep ECAPA-TDNN (192-d)
         wav_tensor = torch.FloatTensor(audio).to(device)
         with torch.no_grad():
             emb = sb_model.encode_batch(wav_tensor.unsqueeze(0))
@@ -115,7 +132,7 @@ def extract_speaker_embedding(audio_path):
         return emb, audio, sr
 
     elif ENGINE_MODE == "local_checkpoint":
-        # Local ECAPA-TDNN PyTorch weights
+        # Custom BioVoice ECAPA-TDNN (256-d from base_model.py)
         target_len = 200 * 160 + 240
         if len(audio) < target_len:
             audio_padded = np.pad(audio, (0, target_len - len(audio)), mode="wrap")
@@ -127,14 +144,12 @@ def extract_speaker_embedding(audio_path):
             emb = F.normalize(emb, p=2, dim=1)
         return emb, audio, sr
 
-    else:
-        # Acoustic Formant & Mel-Cepstral Representation Engine
-        # Captures vocal tract physical differences (pitch, formants, energy envelope)
+    elif ENGINE_MODE == "acoustic_formant_fallback" and ENABLE_ACOUSTIC_FALLBACK:
+        # Explicit fallback only if flag is explicitly turned True
         mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=32)
         spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=sr)
         chroma = librosa.feature.chroma_stft(y=audio, sr=sr)
         
-        # Attentive statistical pooling (mean + standard deviation across frames)
         feats = np.concatenate([
             np.mean(mfccs, axis=1),
             np.std(mfccs, axis=1),
@@ -143,10 +158,12 @@ def extract_speaker_embedding(audio_path):
             np.mean(chroma, axis=1),
             np.std(chroma, axis=1)
         ])
-        
         emb_tensor = torch.FloatTensor(feats).unsqueeze(0).to(device)
         emb = F.normalize(emb_tensor, p=2, dim=1)
         return emb, audio, sr
+
+    else:
+        raise RuntimeError("No active neural speaker recognition engine configured.")
 
 
 def compute_spectrogram(audio, sr):
@@ -180,8 +197,7 @@ def verify_pair(audio_ref, audio_test, threshold):
     # Cosine similarity
     cosine_sim = torch.mm(emb1, emb2.T).item()
     
-    # Realistic confidence mapping:
-    # Scores > 0.70 are genuine; scores < 0.50 are impostors
+    # Confidence mapping based on cosine similarity
     confidence = max(0.0, min(100.0, ((cosine_sim - 0.20) / 0.65) * 100))
 
     is_verified = cosine_sim >= threshold
@@ -196,7 +212,10 @@ def verify_pair(audio_ref, audio_test, threshold):
             Cosine Similarity: <b style="color:{accent_color};">{cosine_sim:.4f}</b> &nbsp;|&nbsp; 
             Biometric Confidence: <b>{confidence:.1f}%</b>
         </p>
-        <p style="color:#608080; margin:0; font-size:0.85rem;">Decision Threshold (d_th): {threshold:.2f} | Engine: {ENGINE_MODE}</p>
+        <p style="color:#608080; margin:0; font-size:0.85rem;">
+            Decision Threshold (d_th): {threshold:.2f} &nbsp;|&nbsp; 
+            Active Engine: <b>{ENGINE_DISPLAY_NAME}</b>
+        </p>
     </div>
     """
 
@@ -218,7 +237,7 @@ def enroll_speaker(name, audio_path):
         try:
             with open(GALLERY_DB_PATH, "r") as f:
                 db = json.load(f)
-        except:
+        except Exception:
             db = {}
 
     db[name.strip()] = emb_list
@@ -260,6 +279,7 @@ def identify_speaker(audio_path, threshold):
         <div style="padding:14px; border-radius:10px; background:#101a20; border:1.5px solid #39ff8a; text-align:center;">
             <h3 style="color:#39ff8a; margin:0;">🎯 Speaker Identified: {best_match}</h3>
             <p style="color:#d8ecea; margin:6px 0 0;">Match Score: <b>{best_score:.4f}</b> (Confidence: <b>{confidence:.1f}%</b>)</p>
+            <p style="color:#608080; margin:4px 0 0; font-size:0.8rem;">Engine: {ENGINE_DISPLAY_NAME}</p>
         </div>
         """
     else:
@@ -267,6 +287,7 @@ def identify_speaker(audio_path, threshold):
         <div style="padding:14px; border-radius:10px; background:#101a20; border:1.5px solid #ff3d55; text-align:center;">
             <h3 style="color:#ff3d55; margin:0;">❓ Unknown Impostor Voice</h3>
             <p style="color:#d8ecea; margin:6px 0 0;">Closest: {best_match} (Score: {best_score:.4f} < Threshold {threshold:.2f})</p>
+            <p style="color:#608080; margin:4px 0 0; font-size:0.8rem;">Engine: {ENGINE_DISPLAY_NAME}</p>
         </div>
         """
 
@@ -284,9 +305,14 @@ with gr.Blocks(title="BioVoice - Biometric Verification") as demo:
     <style>{CUSTOM_CSS}</style>
     <div style="text-align:center; padding: 18px 0 10px;">
         <h1 style="color:#00e5c0; font-family:'Segoe UI', sans-serif; margin-bottom:4px;">🎙️ BioVoice Biometric Security System</h1>
-        <p style="color:#7fa89f; font-size:0.95rem; margin:0;">
+        <p style="color:#7fa89f; font-size:0.95rem; margin:0 0 8px 0;">
             Acoustic Identity Verification & Impostor Rejection Engine
         </p>
+        <div>
+            <span style="display:inline-block; padding: 4px 14px; border-radius: 16px; background: #16242c; border: 1px solid #00e5c0; color: #00e5c0; font-size: 0.88rem; font-weight: 600;">
+                Active Engine: {ENGINE_DISPLAY_NAME}
+            </span>
+        </div>
     </div>
     """)
 

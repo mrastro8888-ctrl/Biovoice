@@ -25,6 +25,9 @@ def trim_silence_energy(waveform, sample_rate=16000, frame_length_ms=25, hop_len
     if len(waveform) == 0:
         return waveform
 
+    if isinstance(waveform, torch.Tensor):
+        waveform = waveform.detach().cpu().numpy()
+
     frame_len = int(sample_rate * (frame_length_ms / 1000.0))
     hop_len = int(sample_rate * (hop_length_ms / 1000.0))
 

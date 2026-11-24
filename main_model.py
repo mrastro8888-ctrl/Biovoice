@@ -173,7 +173,7 @@ class ECAPAModel(nn.Module):
             x (Tensor): Input waveform of shape (batch, time).
 
         Returns:
-            Tensor: L2-normalized speaker embedding of shape (batch, 192).
+            Tensor: L2-normalized speaker embedding of shape (batch, 256).
         """
         with torch.no_grad():
             return F.normalize(self.speaker_encoder.forward(x.to(device), aug=False), p=2, dim=1)

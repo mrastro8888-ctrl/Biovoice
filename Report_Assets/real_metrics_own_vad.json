@@ -1,0 +1,21 @@
+{
+  "n_trials": 240,
+  "engine": "own",
+  "vad": true,
+  "threshold": 0.8761545419692993,
+  "eer_pct": 30.000000000000004,
+  "auc": 0.7902083333333333,
+  "accuracy_pct": 70.0,
+  "precision_pct": 70.0,
+  "recall_pct": 70.0,
+  "f1_pct": 70.0,
+  "minDCF": 0.7416666666666667,
+  "TP": 84,
+  "FN": 36,
+  "TN": 84,
+  "FP": 36,
+  "genuine_mean": 0.8943468792984883,
+  "genuine_std": 0.15645498560630072,
+  "impostor_mean": 0.7823152710994085,
+  "impostor_std": 0.14789187725298092
+}

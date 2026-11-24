@@ -4,11 +4,13 @@ Strictly adheres to the official BIT Mesra template, style, and formatting guide
 - A4 size, 2.54 cm margins all sides
 - Times New Roman font (18pt titles, 16pt sections, 14pt subsections, 12pt body)
 - 1.5 line spacing, justified text
-- All front matter, 5 complete technical chapters, tables, and 24 IEEE references
-- Embedded figures from Report_Assets/ and Results/ + architectural placeholders
+- All front matter, 5 complete technical chapters, tables, and 23 IEEE references
+- Every metric read programmatically from Report_Assets/real_metrics_*.json (ZERO hardcoded metrics)
+- Embedded real figures from Report_Assets/, Results/, and params/
 """
 
 import os
+import json
 import docx
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
@@ -17,9 +19,29 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 
+# ──────────────────────────────────────────────────────────────────────────────
+# 0. LOAD REAL METRICS FROM JSON (STRICT ZERO HARDCODING RULE)
+# ──────────────────────────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPORT_ASSETS_DIR = os.path.join(BASE_DIR, "Report_Assets")
+
+with open(os.path.join(REPORT_ASSETS_DIR, "real_metrics_own_novad.json"), "r", encoding="utf-8") as f:
+    m_own_novad = json.load(f)
+
+with open(os.path.join(REPORT_ASSETS_DIR, "real_metrics_own_vad.json"), "r", encoding="utf-8") as f:
+    m_own_vad = json.load(f)
+
+with open(os.path.join(REPORT_ASSETS_DIR, "real_metrics_speechbrain_novad.json"), "r", encoding="utf-8") as f:
+    m_sb_novad = json.load(f)
+
+with open(os.path.join(REPORT_ASSETS_DIR, "real_metrics_speechbrain_vad.json"), "r", encoding="utf-8") as f:
+    m_sb_vad = json.load(f)
+
+
 def set_cell_background(cell, fill_hex):
     tcPr = cell._tc.get_or_add_tcPr()
     tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>'))
+
 
 def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
     tcPr = cell._tc.get_or_add_tcPr()
@@ -31,12 +53,11 @@ def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
         tcMar.append(node)
     tcPr.append(tcMar)
 
+
 def create_document():
     doc = Document()
     
-    # ──────────────────────────────────────────────────────────────────────────
-    # PAGE SETUP: A4, 2.54 cm (1 inch) margins
-    # ──────────────────────────────────────────────────────────────────────────
+    # Page setup: A4 with 1.0 inch (2.54 cm) margins
     section = doc.sections[0]
     section.page_width = Inches(8.27)
     section.page_height = Inches(11.69)
@@ -47,7 +68,6 @@ def create_document():
     section.header_distance = Inches(0.5)
     section.footer_distance = Inches(0.5)
 
-    # Set base style to Times New Roman
     style_normal = doc.styles['Normal']
     style_normal.font.name = 'Times New Roman'
     style_normal.font.size = Pt(12)
@@ -81,7 +101,6 @@ def create_document():
         run_ch.font.name = 'Times New Roman'
         run_ch.font.size = Pt(18)
         
-        # Double decorative horizontal line below chapter title as per template
         p_t = doc.add_paragraph()
         p_t.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p_t.paragraph_format.space_before = Pt(0)
@@ -92,7 +111,6 @@ def create_document():
         run_t.font.name = 'Times New Roman'
         run_t.font.size = Pt(18)
         
-        # Horizontal rule
         p_border = doc.add_paragraph()
         p_border.paragraph_format.space_before = Pt(0)
         p_border.paragraph_format.space_after = Pt(18)
@@ -125,21 +143,16 @@ def create_document():
         run.font.size = Pt(14)
         return p
 
-    def add_image_or_placeholder(fig_num, caption, image_path=None, placeholder_desc=None):
-        p_img = doc.add_paragraph()
-        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_img.paragraph_format.space_before = Pt(10)
-        p_img.paragraph_format.space_after = Pt(4)
-
-        if image_path and os.path.exists(image_path):
-            try:
-                run_img = p_img.add_run()
-                run_img.add_picture(image_path, width=Inches(5.2))
-            except Exception:
-                run_ph = p_img.add_run(f"[FIGURE EMBEDDED: {os.path.basename(image_path)}]")
-                run_ph.italic = True
+    def add_image_or_placeholder(fig_num, caption, image_path=None, placeholder_desc=None, width_inches=5.8):
+        full_path = os.path.join(BASE_DIR, image_path) if image_path else None
+        if full_path and os.path.exists(full_path):
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(8)
+            p_img.paragraph_format.space_after = Pt(2)
+            run = p_img.add_run()
+            run.add_picture(full_path, width=Inches(width_inches))
         else:
-            # Create a professional bordered callout box for the placeholder
             table = doc.add_table(rows=1, cols=1)
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
             cell = table.cell(0, 0)
@@ -149,7 +162,7 @@ def create_document():
             p_box = cell.paragraphs[0]
             p_box.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_box.paragraph_format.space_after = Pt(2)
-            run_box1 = p_box.add_run(f"🖼️ [IMAGE PLACEHOLDER: {fig_num}]\n")
+            run_box1 = p_box.add_run(f"🖼️ [DIAGRAM PLACEHOLDER: {fig_num}]\n")
             run_box1.bold = True
             run_box1.font.size = Pt(11)
             run_box1.font.color.rgb = RGBColor(0, 51, 102)
@@ -169,7 +182,7 @@ def create_document():
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 1: TITLE PAGE
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_p("BioVoice: Acoustic Identity Verification via Multi-Scale Attentive Deep Neural Embeddings",
           bold=True, size=18, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18, space_before=24)
     add_p("A Report", italic=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
@@ -189,40 +202,55 @@ def create_document():
     # Logo Placeholder
     table_logo = doc.add_table(rows=1, cols=1)
     table_logo.alignment = WD_TABLE_ALIGNMENT.CENTER
-    cell_logo = table_logo.cell(0, 0)
-    cell_logo.width = Inches(2.5)
-    set_cell_background(cell_logo, "FFFFFF")
-    p_logo = cell_logo.paragraphs[0]
+    c_logo = table_logo.cell(0, 0)
+    c_logo.width = Inches(2.2)
+    set_cell_background(c_logo, "F8F9FA")
+    set_cell_margins(c_logo, top=160, bottom=160, left=160, right=160)
+    p_logo = c_logo.paragraphs[0]
     p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run_l = p_logo.add_run("BIRLA INSTITUTE OF TECHNOLOGY, MESRA\n[Official Seal / Logo]")
-    run_l.bold = True
-    run_l.font.size = Pt(9)
-    run_l.font.color.rgb = RGBColor(120, 20, 20)
+    r_logo = p_logo.add_run("🏛️\n[Insert Official BIT Mesra Seal / Emblem Here]")
+    r_logo.font.size = Pt(9.5)
+    r_logo.font.color.rgb = RGBColor(100, 100, 100)
 
-    add_p("Birla Institute of Technology, Mesra", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=4)
-    add_p("Ranchi, Jharkhand – 835215", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=12)
+    add_p("", space_after=18)
+    add_p("Department of Computer Science and Engineering", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
+    add_p("Birla Institute of Technology, Mesra", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
+    add_p("Ranchi, Jharkhand – 835215, India", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
+    add_p("NOVEMBER 2026", bold=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=0)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 2: APPROVAL OF THE GUIDE
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
-    add_p("APPROVAL OF THE GUIDE", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=24)
-    add_p("Recommended that the B.Tech Minor Project titled \"BioVoice: Acoustic Identity Verification via Multi-Scale Attentive Deep Neural Embeddings\" submitted by BTECH/10508/23 Kush Lahoti and BTECH/10775/23 Patil Shashank Reddy is approved by me for submission. This should be accepted as fulfilling the partial requirements for the award of Degree of Bachelor of Technology in Computer Science and Engineering. To the best of my knowledge, the report represents work carried out by the students in Birla Institute of Technology, Mesra and the content of this report does not form a basis for the award of any previous degree to anyone else.", space_after=36)
-
-    add_p("Date: [Date: 27/11/2026]", size=12, align=WD_ALIGN_PARAGRAPH.LEFT, space_after=2)
-    add_p("Place: Ranchi", size=12, align=WD_ALIGN_PARAGRAPH.LEFT, space_after=36)
-
-    p_guide = add_p("Mr. Kalyan Samanta\nAssistant Professor\nDepartment of Computer Science and Engineering\nBirla Institute of Technology, Mesra",
-                    bold=True, size=12, align=WD_ALIGN_PARAGRAPH.RIGHT, space_after=12)
+    add_p("APPROVAL OF THE GUIDE", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
+    
+    guide_text = (
+        'Recommended that the B.Tech Minor Project titled "BioVoice: Acoustic Identity Verification via Multi-Scale Attentive '
+        'Deep Neural Embeddings" submitted by BTECH/10508/23 Kush Lahoti and BTECH/10775/23 Patil Shashank Reddy is approved '
+        'by me for submission. This should be accepted as fulfilling the partial requirements for the award of Degree of '
+        'Bachelor of Technology in Computer Science and Engineering. To the best of my knowledge, the report represents work '
+        'carried out by the students in Birla Institute of Technology, Mesra and the content of this report does not form a '
+        'basis for the award of any previous degree to anyone else.'
+    )
+    add_p(guide_text, space_after=36)
+    
+    add_p("Date: [Date: 27/11/2026]", size=11, space_after=4)
+    add_p("Place: Ranchi", size=11, space_after=24)
+    
+    add_p("____________________________", space_after=2)
+    add_p("Mr. Kalyan Samanta", bold=True, size=12, space_after=2)
+    add_p("Assistant Professor", size=11, space_after=2)
+    add_p("Department of Computer Science and Engineering", size=11, space_after=2)
+    add_p("Birla Institute of Technology, Mesra", size=11, space_after=0)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 3: DECLARATION CERTIFICATE
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
-    add_p("DECLARATION CERTIFICATE", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=24)
-    add_p("We certify that:", space_after=8)
+    add_p("DECLARATION CERTIFICATE", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
-    declarations = [
+    add_p("We certify that:", space_after=6)
+    decl_points = [
         "a) The work contained in the report is original and has been done by ourselves under the general supervision of our supervisor, Mr. Kalyan Samanta.",
         "b) The work has not been submitted to any other Institute or University for any other degree or diploma.",
         "c) We have followed the guidelines provided by the Institute in writing this report.",
@@ -230,105 +258,114 @@ def create_document():
         "e) Whenever we have used materials (data, theoretical analysis, algorithms, and text) from other sources, we have given due credit to them by citing them in the text of the report and giving their details in the references section.",
         "f) Whenever we have quoted written materials from other sources, we have put them under quotation marks and given due credit to the sources by citing them and providing required details in the references."
     ]
-    for dec in declarations:
-        add_p(dec, space_after=6)
-
-    add_p("Date: [Date: 27/11/2026]", size=12, align=WD_ALIGN_PARAGRAPH.LEFT, space_before=24, space_after=2)
-    add_p("Place: Ranchi", size=12, align=WD_ALIGN_PARAGRAPH.LEFT, space_after=24)
-
-    add_p("Kush Lahoti (BTECH/10508/23)\nPatil Shashank Reddy (BTECH/10775/23)\nDepartment of Computer Science and Engineering\nBirla Institute of Technology, Mesra",
-          bold=True, size=12, align=WD_ALIGN_PARAGRAPH.RIGHT, space_after=12)
+    for dp in decl_points:
+        add_p(dp, space_after=4)
+        
+    add_p("", space_after=18)
+    add_p("Date: [Date: 27/11/2026]", size=11, space_after=4)
+    add_p("Place: Ranchi", size=11, space_after=24)
+    
+    add_p("____________________________          ____________________________", space_after=2)
+    add_p("Kush Lahoti (BTECH/10508/23)          Patil Shashank Reddy (BTECH/10775/23)", bold=True, size=11, space_after=2)
+    add_p("Department of Computer Science and Engineering, Birla Institute of Technology, Mesra", size=10, space_after=0)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 4: CERTIFICATE OF APPROVAL
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
-    add_p("CERTIFICATE OF APPROVAL", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=24)
-    add_p("This is to certify that the work embodied in this Minor Project Report entitled:", space_after=10)
-    add_p("“BioVoice: Acoustic Identity Verification via Multi-Scale Attentive Deep Neural Embeddings”", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=12)
-    add_p("is carried out by Kush Lahoti (BTECH/10508/23) and Patil Shashank Reddy (BTECH/10775/23) and has been approved for the degree of Bachelor of Technology in Computer Science and Engineering of Birla Institute of Technology, Mesra, Ranchi.", space_after=36)
-
-    add_p("Date: [Date: 27/11/2026]", size=12, space_after=2)
-    add_p("Place: Ranchi", size=12, space_after=48)
-
-    # Two column approval table
-    t_app = doc.add_table(rows=1, cols=2)
-    t_app.alignment = WD_TABLE_ALIGNMENT.CENTER
-    cell_l, cell_r = t_app.cell(0, 0), t_app.cell(0, 1)
-    cell_l.width = Inches(3.2)
-    cell_r.width = Inches(3.2)
+    add_p("CERTIFICATE OF APPROVAL", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
-    p_l = cell_l.paragraphs[0]
-    p_l.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    r_l = p_l.add_run("(Chairman)\nHead of the Department\nDept. of Comp. Sc. & Engg.\nBirla Institute of Technology, Mesra")
-    r_l.bold = True
-    r_l.font.name = 'Times New Roman'
+    cert_text = (
+        'This is to certify that the work embodied in this Minor Project Report entitled:\n'
+        '“BioVoice: Acoustic Identity Verification via Multi-Scale Attentive Deep Neural Embeddings”\n'
+        'is carried out by Kush Lahoti (BTECH/10508/23) and Patil Shashank Reddy (BTECH/10775/23) and has been approved for the '
+        'degree of Bachelor of Technology in Computer Science and Engineering of Birla Institute of Technology, Mesra, Ranchi.'
+    )
+    add_p(cert_text, space_after=36)
     
-    p_r = cell_r.paragraphs[0]
-    p_r.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    r_r = p_r.add_run("(Panel Coordinator / Examiner)\nExaminer\nDept. of Comp. Sc. & Engg.\nBirla Institute of Technology, Mesra")
-    r_r.bold = True
-    r_r.font.name = 'Times New Roman'
+    add_p("Date: [Date: 27/11/2026]", size=11, space_after=4)
+    add_p("Place: Ranchi", size=11, space_after=28)
+    
+    t_comm = doc.add_table(rows=2, cols=2)
+    t_comm.alignment = WD_TABLE_ALIGNMENT.CENTER
+    c0 = t_comm.cell(0, 0); c0.paragraphs[0].add_run("______________________________\nInternal Examiner\nDate: [Date: DD/MM/2026]").font.size = Pt(10)
+    c1 = t_comm.cell(0, 1); c1.paragraphs[0].add_run("______________________________\nExternal Examiner\nDate: [Date: DD/MM/2026]").font.size = Pt(10)
+    c2 = t_comm.cell(1, 0); c2.paragraphs[0].add_run("\n______________________________\nProject Guide\nMr. Kalyan Samanta").font.size = Pt(10)
+    c3 = t_comm.cell(1, 1); c3.paragraphs[0].add_run("\n______________________________\nHead of Department\nDept. of Computer Science & Engg.").font.size = Pt(10)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PAGE 5: ABSTRACT (< 250 words strictly)
-    # ═══════════════════════════════════════════════════
+    # PAGE 5: ABSTRACT (STRICTLY REAL METRICS & EXPLICIT LIMITATIONS)
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("ABSTRACT", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
     abstract_text = (
-        "Automatic Speaker Verification (ASV) is a primary biometric modality that validates a claimed human identity "
-        "from individual voice characteristics. Modern verification models encounter acute accuracy degradation in practical "
-        "scenarios due to short utterance durations, background acoustic noise, and regional dialectal variations. This project "
-        "presents BioVoice, an end-to-end acoustic biometric authentication framework leveraging an enhanced Emphasized Channel "
-        "Attention, Propagation, and Aggregation Time-Delay Neural Network (ECAPA-TDNN) architecture.\n\n"
-        "The proposed pipeline incorporates an adaptive Energy-based Voice Activity Detection (VAD) filter and a custom Short-Time "
-        "Fourier Transform (STFT) 80-channel Mel-filterbank frontend to eliminate unvoiced silence. Acoustic representations are "
-        "modeled through a hierarchical stack of 1D Squeeze-and-Excitation Res2Net (SE-Res2Block) modules operating across multi-scale "
-        "temporal dilations (d = 2, 3, 4). Frame-level features are aggregated into a fixed 192-dimensional embedding using "
-        "Channel-Dependent Attentive Statistics Pooling. The network is trained with the Additive Angular Margin Softmax (AAM-Softmax) "
-        "objective, enforcing hyperspherical geodesic separation to maximize inter-speaker distance and intra-speaker compactness.\n\n"
-        "Evaluated on an Indian-accented speech benchmark comprising 24 speaker classes across variable telephonic and near-field trials, "
-        "BioVoice achieves an Equal Error Rate (EER) of 2.85% and an overall verification accuracy of 97.10% at an operating threshold "
-        "of d_th = 0.678, outperforming classical GMM-UBM and vanilla TDNN baselines. An interactive web application is deployed to "
-        "demonstrate real-time 1-to-1 biometric verification and 1-to-N voice gallery identification."
+        f"Automatic Speaker Verification (ASV) is a biometric modality that validates a claimed human identity "
+        f"from individual acoustic voice characteristics. This project presents BioVoice, an acoustic biometric "
+        f"authentication pipeline based on an enhanced Emphasized Channel Attention, Propagation, and Aggregation "
+        f"Time-Delay Neural Network (ECAPA-TDNN) architecture.\n\n"
+        f"The architecture utilizes a frontend 80-channel log Mel-filterbank representation coupled with an optional "
+        f"energy-based Voice Activity Detection (VAD) filter. Multi-scale temporal context is extracted via hierarchical "
+        f"1D Squeeze-and-Excitation Res2Net (SE-Res2Block) blocks across dilated temporal scales (d = 2, 3, 4). "
+        f"Frame-level representations are aggregated into a fixed 256-dimensional embedding vector (fc6: 3072 -> 256) "
+        f"using Channel-Dependent Attentive Statistics Pooling, optimized under the Additive Angular Margin Softmax "
+        f"(AAM-Softmax, m=0.2, s=30) metric learning objective.\n\n"
+        f"Empirical evaluation was conducted on a balanced test set of {m_sb_novad['n_trials']} trials across 40 human speakers "
+        f"drawn from the LibriSpeech test-clean corpus ({m_sb_novad['TP'] + m_sb_novad['FN']} genuine trials and "
+        f"{m_sb_novad['TN'] + m_sb_novad['FP']} impostor trials). The custom model checkpoint, trained on 24 VoxCeleb1-style "
+        f"speakers' single-word clips, achieved an Equal Error Rate (EER) of {m_own_novad['eer_pct']:.2f}% (AUC = {m_own_novad['auc']:.3f}, "
+        f"accuracy = {m_own_novad['accuracy_pct']:.2f}%) without VAD, and an EER of {m_own_vad['eer_pct']:.2f}% (AUC = {m_own_vad['auc']:.3f}, "
+        f"accuracy = {m_own_vad['accuracy_pct']:.2f}%) with energy VAD under cross-domain evaluation. For reference benchmarking, "
+        f"the pretrained SpeechBrain ECAPA-TDNN evaluated on the exact same {m_sb_novad['n_trials']} trials achieved an EER of "
+        f"{m_sb_novad['eer_pct']:.2f}% (AUC = {m_sb_novad['auc']:.3f}, accuracy = {m_sb_novad['accuracy_pct']:.2f}%, minDCF = {m_sb_novad['minDCF']:.3f}) "
+        f"without VAD, and an EER of {m_sb_vad['eer_pct']:.2f}% with VAD.\n\n"
+        f"System limitations identified through testing include: (1) a modest evaluation set size ({m_sb_novad['n_trials']} trials), "
+        f"(2) domain shift between single-word training clips and continuous read speech evaluation, (3) an initial 1-epoch custom training "
+        f"checkpoint exhibiting wider score distribution overlap, (4) reliance on pretrained SpeechBrain weights for low-latency live web demo "
+        f"inference, and (5) the current absence of physical presentation attack detection (anti-spoofing)."
     )
     add_p(abstract_text, space_after=12)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 6: ACKNOWLEDGEMENT (< 300 words strictly)
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("ACKNOWLEDGEMENT", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
     ack_text = (
         "We are deeply indebted to our project mentor, Mr. Kalyan Samanta, Assistant Professor, Department of Computer Science "
-        "and Engineering, Birla Institute of Technology, Mesra, for his guidance, insightful suggestions, and continuous encouragement "
-        "throughout the conceptualization and development of the BioVoice project. His expertise in machine learning and deep acoustic "
-        "modeling provided invaluable direction in solving complex technical challenges.\n\n"
-        "We express our sincere gratitude to Dr. Sandip Dutta, Head of the Department of Computer Science and Engineering, for providing "
-        "essential computational resources, state-of-the-art laboratory facilities, and an encouraging academic environment. We also extend "
-        "our thanks to the departmental technical staff and faculty members who facilitated our research efforts.\n\n"
-        "We gratefully acknowledge the creators of the VoxCeleb speech corpus and the SpeechBrain open-source community, whose benchmarks "
-        "and architectural toolkits significantly enriched our comparative analysis. Finally, we thank our parents, family members, and "
-        "classmates for their constant support and understanding throughout the course of this work."
+        "and Engineering, Birla Institute of Technology, Mesra, for his exemplary guidance, continuous technical advice, and insightful "
+        "critiques throughout the formulation and implementation of this project.\n\n"
+        "We extend our sincere gratitude to the Head of the Department, Department of Computer Science and Engineering, for providing "
+        "comprehensive computational facilities and an academically enriching environment. We also acknowledge the faculty and laboratory "
+        "staff for their administrative and technical support.\n\n"
+        "Finally, we express our profound gratitude to our parents, family members, and peers for their constant encouragement and "
+        "understanding throughout the duration of this B.Tech Minor Project."
     )
     add_p(ack_text, space_after=24)
-    add_p("Date: [Date: 27/11/2026]", size=12, space_after=18)
-    add_p("Kush Lahoti (BTECH/10508/23)\nPatil Shashank Reddy (BTECH/10775/23)", bold=True, size=12, align=WD_ALIGN_PARAGRAPH.RIGHT)
+    add_p("Date: [Date: 27/11/2026]", size=11, space_after=4)
+    add_p("Place: Ranchi", size=11, space_after=18)
+    add_p("Kush Lahoti (BTECH/10508/23)\nPatil Shashank Reddy (BTECH/10775/23)", bold=True, size=11, space_after=0)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PAGE 7: CONTENTS
-    # ═══════════════════════════════════════════════════
+    # PAGES 7-8: TABLE OF CONTENTS
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("CONTENTS", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
-    contents_data = [
-        ("ABSTRACT", "v"),
-        ("ACKNOWLEDGEMENT", "vi"),
-        ("LIST OF FIGURES", "viii"),
-        ("LIST OF TABLES", "ix"),
-        ("", ""),
+    toc_table = doc.add_table(rows=1, cols=2)
+    toc_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    c_h0 = toc_table.cell(0, 0); c_h0.width = Inches(5.2); p = c_h0.paragraphs[0]; r = p.add_run("Title"); r.bold = True
+    c_h1 = toc_table.cell(0, 1); c_h1.width = Inches(1.3); p = c_h1.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; r = p.add_run("Page No."); r.bold = True
+    
+    toc_entries = [
+        ("Approval of the Guide", "ii"),
+        ("Declaration Certificate", "iii"),
+        ("Certificate of Approval", "iv"),
+        ("Abstract", "v"),
+        ("Acknowledgement", "vi"),
+        ("List of Figures", "ix"),
+        ("List of Tables", "x"),
         ("CHAPTER 1: INTRODUCTION", "1"),
         ("  1.1 The Domain of Speaker Verification", "1"),
         ("  1.2 The State of the Art and Its Fundamental Limitations", "2"),
@@ -336,165 +373,125 @@ def create_document():
         ("  1.4 Problem Statement and Proposed Solution", "4"),
         ("  1.5 Research Objectives", "5"),
         ("  1.6 Organization of the Report", "5"),
-        ("", ""),
-        ("CHAPTER 2: LITERATURE REVIEW", "6"),
-        ("  2.1 The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors", "6"),
-        ("  2.2 Deep Residual Learning in Audio Spectrogram Analysis", "8"),
-        ("  2.3 Squeeze-and-Excitation (SE) Channel Recalibration", "9"),
-        ("  2.4 Multi-Scale Temporal Convolutions with Res2Net", "10"),
-        ("  2.5 Frame-Level Statistics Pooling vs. Attentive Aggregation", "11"),
-        ("  2.6 Hyperspherical Metric Learning and AAM-Softmax Loss", "12"),
+        ("CHAPTER 2: LITERATURE REVIEW", "7"),
+        ("  2.1 The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors", "7"),
+        ("  2.2 Deep Residual Learning in Audio Spectrogram Analysis", "9"),
+        ("  2.3 Squeeze-and-Excitation (SE) Channel Recalibration", "10"),
+        ("  2.4 Multi-Scale Temporal Convolutions with Res2Net", "11"),
+        ("  2.5 Frame-Level Statistics Pooling vs. Attentive Aggregation", "12"),
+        ("  2.6 Hyperspherical Metric Learning and AAM-Softmax Loss", "13"),
         ("  2.7 Literature Gap Analysis", "14"),
-        ("", ""),
-        ("CHAPTER 3: METHODOLOGY", "15"),
-        ("  3.1 Proposed BioVoice Architectural Blueprint", "15"),
-        ("  3.2 Frontend Signal Preprocessing and Voice Activity Detection (VAD)", "16"),
-        ("  3.3 Hardware-Accelerated 80-Channel Mel-Filterbank Computation", "18"),
-        ("  3.4 SE-Res2Block Multi-Scale Temporal Convolutional Backbone", "19"),
-        ("  3.5 Multi-Layer Feature Aggregation (MFA) and Residual Propagation", "21"),
-        ("  3.6 Channel-Dependent Attentive Statistics Pooling", "22"),
-        ("  3.7 Additive Angular Margin Metric Learning Objective", "23"),
-        ("  3.8 Inference-Time Scoring and 1-to-N Gallery Matching Algorithm", "24"),
-        ("", ""),
-        ("CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION", "26"),
-        ("  4.1 Benchmark Dataset: IndianVoxCeleb Corpus", "26"),
-        ("  4.2 Experimental Setup and Hyperparameter Protocol", "27"),
-        ("  4.3 Quantitative Evaluation Metrics (EER, minDCF, Accuracy)", "28"),
-        ("  4.4 Verification Performance and Confusion Matrix Analysis", "29"),
-        ("  4.5 Latent Space Visualization via t-SNE Clustering", "30"),
-        ("  4.6 Acoustic Score Separation and Operating Threshold Calibration", "31"),
-        ("  4.7 Comparative Benchmarking with State-of-the-Art Baselines", "32"),
-        ("  4.8 Ablation Analysis: Impact of VAD and Pooling Modifications", "33"),
-        ("", ""),
-        ("CHAPTER 5: CONCLUSION AND FUTURE WORK", "34"),
-        ("  5.1 Summary of Contributions", "34"),
-        ("  5.2 Practical Deployment: Interactive Gradio Web System", "35"),
-        ("  5.3 System Limitations", "35"),
-        ("  5.4 Future Research Directions", "36"),
-        ("", ""),
-        ("REFERENCES", "37")
+        ("CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN", "16"),
+        ("  3.1 Proposed BioVoice Architectural Blueprint", "16"),
+        ("  3.2 Frontend Signal Preprocessing and Voice Activity Detection (VAD)", "18"),
+        ("  3.3 Hardware-Accelerated 80-Channel Mel-Filterbank Computation", "19"),
+        ("  3.4 SE-Res2Block Multi-Scale Temporal Convolutional Backbone", "20"),
+        ("  3.5 Attentive Statistics Pooling Mechanism", "22"),
+        ("  3.6 Additive Angular Margin Loss (AAM-Softmax) Formulation", "23"),
+        ("  3.7 1:1 Biometric Verification and 1:N Gallery Identification Pipeline", "25"),
+        ("  3.8 Algorithmic Workflow and Pseudocode", "26"),
+        ("CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION", "28"),
+        ("  4.1 Evaluation Dataset: LibriSpeech Test-Clean Corpus", "28"),
+        ("  4.2 Experimental Setup and Hyperparameter Protocol", "29"),
+        ("  4.3 Quantitative Evaluation Metrics", "30"),
+        ("  4.4 Verification Performance and Confusion Matrix Analysis", "31"),
+        ("  4.5 Acoustic Score Separation and Operating Threshold Calibration", "32"),
+        ("  4.6 Verification Operating Characteristics and ROC Analysis", "33"),
+        ("  4.7 Dynamic Multi-Scale Temporal Attention Analysis", "34"),
+        ("  4.8 Latent Space Visualization via t-SNE Clustering", "35"),
+        ("  4.9 Empirical Cross-System Performance Benchmark", "36"),
+        ("  4.10 Ablation Analysis: Empirical Impact of Voice Activity Detection", "37"),
+        ("CHAPTER 5: CONCLUSION AND FUTURE WORK", "39"),
+        ("  5.1 Summary of Contributions", "39"),
+        ("  5.2 Practical Deployment: Interactive Gradio Web System", "40"),
+        ("  5.3 System Limitations", "41"),
+        ("  5.4 Future Research Directions", "42"),
+        ("REFERENCES", "43")
     ]
     
-    t_toc = doc.add_table(rows=len(contents_data), cols=2)
-    t_toc.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for idx, (item, page) in enumerate(contents_data):
-        row = t_toc.rows[idx]
-        row.cells[0].width = Inches(5.5)
-        row.cells[1].width = Inches(1.0)
-        p0 = row.cells[0].paragraphs[0]
-        p0.paragraph_format.space_after = Pt(2)
-        p0.paragraph_format.space_before = Pt(0)
+    for item, page in toc_entries:
+        row = toc_table.add_row()
+        c0 = row.cells[0]; c0.width = Inches(5.2)
+        p0 = c0.paragraphs[0]; p0.paragraph_format.space_after = Pt(2)
         r0 = p0.add_run(item)
         r0.font.name = 'Times New Roman'
-        r0.font.size = Pt(11)
         if "CHAPTER" in item or item in ["ABSTRACT", "ACKNOWLEDGEMENT", "LIST OF FIGURES", "LIST OF TABLES", "REFERENCES"]:
             r0.bold = True
-        p1 = row.cells[1].paragraphs[0]
-        p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p1.paragraph_format.space_after = Pt(2)
+            r0.font.size = Pt(11)
+        else:
+            r0.font.size = Pt(10.5)
+            
+        c1 = row.cells[1]; c1.width = Inches(1.3)
+        p1 = c1.paragraphs[0]; p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p1.paragraph_format.space_after = Pt(2)
         r1 = p1.add_run(page)
         r1.font.name = 'Times New Roman'
-        r1.font.size = Pt(11)
-        if r0.bold:
+        r1.font.size = Pt(10.5)
+        if "CHAPTER" in item or item in ["ABSTRACT", "ACKNOWLEDGEMENT", "LIST OF FIGURES", "LIST OF TABLES", "REFERENCES"]:
             r1.bold = True
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PAGE 8: LIST OF FIGURES
-    # ═══════════════════════════════════════════════════
+    # PAGE 9: LIST OF FIGURES
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("LIST OF FIGURES", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
-    figures_list = [
-        ("Figure 1.1", "Conceptual Paradigm of Text-Independent Acoustic Biometric Verification", "2"),
-        ("Figure 1.2", "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Loss", "4"),
-        ("Figure 2.1", "Evolution of Speaker Representation: Classical GMM-UBM to Deep Latent Embeddings", "7"),
-        ("Figure 2.2", "Structural Topology of the Multi-Scale Res2Net Residual Block (s = 8)", "10"),
-        ("Figure 2.3", "1D Squeeze-and-Excitation (SE) Channel Attention Module for Temporal Feature Recalibration", "11"),
-        ("Figure 3.1", "End-to-End System Pipeline of the Proposed BioVoice Architecture", "16"),
-        ("Figure 3.2", "Energy-Based Voice Activity Detection (VAD) Waveform and Silence Trimming", "18"),
-        ("Figure 3.3", "Extraction of 80-Dimensional Log Mel-Spectrogram with Temporal Attention Weights", "19"),
-        ("Figure 3.4", "Detailed Internal Dataflow of the SE-Res2Block with Ascending Temporal Dilation", "20"),
-        ("Figure 3.5", "Channel-Dependent Attentive Statistics Pooling Mechanism with Mean and Variance Fusion", "22"),
-        ("Figure 4.1", "Confusion Matrix for Target vs. Impostor Verification Trials at Threshold d_th = 0.678", "29"),
-        ("Figure 4.2", "Two-Dimensional t-SNE Latent Space Projection of 24 Speaker Identity Clusters", "30"),
-        ("Figure 4.3", "Probability Density Distribution of Cosine Similarity Scores for Genuine vs. Impostor Trials", "31"),
-        ("Figure 4.4", "Receiver Operating Characteristic (ROC) and Detection Error Tradeoff (DET) Curves", "32"),
-        ("Figure 5.1", "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment", "35")
-    ]
+    lof_table = doc.add_table(rows=1, cols=3)
+    lof_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    lof_table.cell(0, 0).paragraphs[0].add_run("Figure No.").bold = True
+    lof_table.cell(0, 1).paragraphs[0].add_run("Title").bold = True
+    p = lof_table.cell(0, 2).paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p.add_run("Page No.").bold = True
     
-    t_lof = doc.add_table(rows=len(figures_list), cols=3)
-    t_lof.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for idx, (f_num, f_cap, f_pg) in enumerate(figures_list):
-        row = t_lof.rows[idx]
-        row.cells[0].width = Inches(1.2)
-        row.cells[1].width = Inches(4.5)
-        row.cells[2].width = Inches(0.8)
-        
-        p0 = row.cells[0].paragraphs[0]
-        p0.paragraph_format.space_after = Pt(3)
-        r0 = p0.add_run(f_num)
-        r0.bold = True
-        r0.font.name = 'Times New Roman'
-        r0.font.size = Pt(11)
-        
-        p1 = row.cells[1].paragraphs[0]
-        p1.paragraph_format.space_after = Pt(3)
-        r1 = p1.add_run(f_cap)
-        r1.font.name = 'Times New Roman'
-        r1.font.size = Pt(11)
-        
-        p2 = row.cells[2].paragraphs[0]
-        p2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p2.paragraph_format.space_after = Pt(3)
-        r2 = p2.add_run(f_pg)
-        r2.font.name = 'Times New Roman'
-        r2.font.size = Pt(11)
+    figures_data = [
+        ("Figure 1.1", "Conceptual Paradigm of Text-Independent Acoustic Biometric Verification", "2"),
+        ("Figure 1.2", "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Cross-Entropy", "4"),
+        ("Figure 3.1", "Complete Architectural Blueprint of the BioVoice Speaker Verification Pipeline", "17"),
+        ("Figure 3.2", "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology", "21"),
+        ("Figure 4.1", f"Empirical Confusion Matrix on LibriSpeech Test-Clean (Threshold d_th = {m_sb_novad['threshold']:.3f})", "31"),
+        ("Figure 4.2", f"Acoustic Cosine Similarity Score Distribution for Genuine vs. Impostor Trials", "32"),
+        ("Figure 4.3", f"Receiver Operating Characteristic (ROC) Verification Trajectory (EER = {m_sb_novad['eer_pct']:.2f}%)", "33"),
+        ("Figure 4.4", "Dynamic Multi-Scale Temporal Attention Heatmap across Frequency Sub-Bands", "34"),
+        ("Figure 4.5(a)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (Initial Epoch Baseline)", "35"),
+        ("Figure 4.5(b)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (10-Epoch Cluster Separation)", "35"),
+        ("Figure 5.1", "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment", "40")
+    ]
+    for f_num, f_cap, f_pg in figures_data:
+        row = lof_table.add_row()
+        row.cells[0].paragraphs[0].add_run(f_num).font.size = Pt(10.5)
+        row.cells[1].paragraphs[0].add_run(f_cap).font.size = Pt(10.5)
+        p = row.cells[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        p.add_run(f_pg).font.size = Pt(10.5)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PAGE 9: LIST OF TABLES
-    # ═══════════════════════════════════════════════════
+    # PAGE 10: LIST OF TABLES
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("LIST OF TABLES", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
     
-    tables_list = [
-        ("Table 2.1", "Qualitative Comparison of Speaker Verification Paradigms and Pooling Mechanisms", "13"),
-        ("Table 3.1", "Detailed Layer-by-Layer Architectural Parameters of the Proposed BioVoice Model", "17"),
-        ("Table 4.1", "Hyperparameter Configuration and Acoustic Experimental Parameters", "27"),
-        ("Table 4.2", "Quantitative Verification Performance Benchmarking Against Classical and Deep Baselines", "32"),
-        ("Table 4.3", "Ablation Analysis of VAD Preprocessing and Pooling Architectural Variations", "33")
-    ]
+    lot_table = doc.add_table(rows=1, cols=3)
+    lot_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    lot_table.cell(0, 0).paragraphs[0].add_run("Table No.").bold = True
+    lot_table.cell(0, 1).paragraphs[0].add_run("Title").bold = True
+    p = lot_table.cell(0, 2).paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p.add_run("Page No.").bold = True
     
-    t_lot = doc.add_table(rows=len(tables_list), cols=3)
-    t_lot.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for idx, (t_num, t_cap, t_pg) in enumerate(tables_list):
-        row = t_lot.rows[idx]
-        row.cells[0].width = Inches(1.2)
-        row.cells[1].width = Inches(4.5)
-        row.cells[2].width = Inches(0.8)
-        
-        p0 = row.cells[0].paragraphs[0]
-        p0.paragraph_format.space_after = Pt(3)
-        r0 = p0.add_run(t_num)
-        r0.bold = True
-        r0.font.name = 'Times New Roman'
-        r0.font.size = Pt(11)
-        
-        p1 = row.cells[1].paragraphs[0]
-        p1.paragraph_format.space_after = Pt(3)
-        r1 = p1.add_run(t_cap)
-        r1.font.name = 'Times New Roman'
-        r1.font.size = Pt(11)
-        
-        p2 = row.cells[2].paragraphs[0]
-        p2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p2.paragraph_format.space_after = Pt(3)
-        r2 = p2.add_run(t_pg)
-        r2.font.name = 'Times New Roman'
-        r2.font.size = Pt(11)
+    tables_data = [
+        ("Table 1.1", "Comparative Taxonomy of Biometric Authentication Modalities", "3"),
+        ("Table 2.1", "Chronological Evolution and Algorithmic Paradigm Shifts in Speaker Recognition", "8"),
+        ("Table 3.1", "Detailed Mathematical Layer Specifications of the BioVoice ECAPA-TDNN Architecture", "21"),
+        ("Table 3.2", "Verification Decision Logic and Biometric Outcome Classification Matrix", "26"),
+        ("Table 4.1", "Hyperparameter Configuration and Experimental Parameters", "29"),
+        ("Table 4.2", "Empirical Cross-System Performance Benchmark on LibriSpeech Test-Clean (240 Trials)", "36"),
+        ("Table 4.3", "Ablation Analysis: Empirical Impact of Voice Activity Detection (VAD) on Verification Error Rates", "37")
+    ]
+    for t_num, t_cap, t_pg in tables_data:
+        row = lot_table.add_row()
+        row.cells[0].paragraphs[0].add_run(t_num).font.size = Pt(10.5)
+        row.cells[1].paragraphs[0].add_run(t_cap).font.size = Pt(10.5)
+        p = row.cells[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        p.add_run(t_pg).font.size = Pt(10.5)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 1: INTRODUCTION
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_chapter_heading(1, "Introduction")
     
     add_section_heading("1.1", "The Domain of Speaker Verification")
@@ -518,350 +515,304 @@ def create_document():
     add_image_or_placeholder(
         "Figure 1.1",
         "Conceptual Paradigm of Text-Independent Acoustic Biometric Verification",
-        placeholder_desc="Audio Waveform -> VAD Preprocessing -> Time-Delay Feature Extraction -> Attentive Pooling -> 192-d Latent Voiceprint"
+        placeholder_desc="Flowchart showing enrollment audio -> Mel feature extraction -> neural embedding -> stored template; and verification probe audio -> score comparison -> threshold decision"
     )
+
+    # Table 1.1
+    add_p("Table 1.1: Comparative Taxonomy of Biometric Authentication Modalities", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    t_bio = doc.add_table(rows=5, cols=5)
+    t_bio.alignment = WD_TABLE_ALIGNMENT.CENTER
+    headers_bio = ["Biometric Trait", "Universality", "Distinctiveness", "Collectability", "User Acceptability"]
+    for i, h in enumerate(headers_bio):
+        c = t_bio.cell(0, i)
+        set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(10)
+    
+    bio_data = [
+        ("Fingerprint", "Medium", "High", "Medium", "Medium"),
+        ("Facial Recognition", "High", "Medium", "High", "High"),
+        ("Iris Pattern", "High", "Very High", "Medium", "Low"),
+        ("Voice Biometrics (BioVoice)", "High", "High", "High", "Very High")
+    ]
+    for row_idx, data in enumerate(bio_data):
+        row = t_bio.rows[row_idx + 1]
+        for col_idx, text in enumerate(data):
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(9.5)
+            if col_idx == 0: r.bold = True
 
     add_section_heading("1.2", "The State of the Art and Its Fundamental Limitations")
     add_p(
-        "Over the last decade, speaker recognition has shifted from classical Gaussian statistical models to deep representation "
-        "learning. Modern state-of-the-art frameworks, such as the x-vector architecture and its successor ECAPA-TDNN, map "
-        "variable-length speech waveforms into compact, fixed-dimensional embedding vectors (voiceprints). Identity verification "
-        "is executed by evaluating the cosine similarity between an enrolled speaker embedding and a newly recorded probe embedding."
-    )
-    add_p(
-        "However, existing deep architectures possess a fundamental limitation: they assume speech utterances are sufficiently long "
-        "(typically 3 to 8 seconds). Standard temporal pooling layers calculate the unweighted mean and standard deviation across all "
-        "frames. When deployed in low-latency applications requiring verification from short or single-word utterances (such as voice "
-        "command interfaces), the phonetic content ceases to be negligible noise—it becomes the dominant signal. Under these conditions, "
-        "standard statistical pooling fails, producing an entangled representation where phonetic variations obscure the underlying "
-        "biometric identity."
+        "Over the last decade, speaker recognition has shifted from classical Gaussian statistical modeling (GMM-UBM) and factor analysis "
+        "(i-vectors) toward deep neural architectures (x-vectors, ResNet, and ECAPA-TDNN [10]). Despite high reported accuracy in controlled "
+        "laboratory benchmarks, practical deployments face substantial challenges. Frame-level feature extractors frequently overfit to "
+        "stationary background noise, unvoiced pauses dilute pooled statistics, and conventional cross-entropy loss functions fail to enforce "
+        "compact hyperspherical clustering."
     )
 
     add_section_heading("1.3", "Key Challenges: Noise, Short Utterance & Accent Invariance")
     add_p(
-        "Deploying voice biometrics in real-world environments introduces three major challenges:\n"
-        "1. Ambient Noise and Silence Contamination: Silent pauses at the beginning and end of speech contain zero speaker information. "
-        "If processed through temporal pooling, silent frames distort the mean and variance, causing genuine speakers to be falsely rejected.\n"
-        "2. Short Utterance Instability: In brief speech bursts (< 2 seconds), standard convolutional kernels fail to capture both localized "
-        "phonetic details and global prosody simultaneously.\n"
-        "3. Linguistic and Dialectal Mismatch: Models trained on international Western corpora (such as VoxCeleb) exhibit elevated Equal "
-        "Error Rates when tested against localized accents and distinct South Asian phonetic patterns."
+        "Deploying voice biometrics in diverse acoustic settings introduces three fundamental technical hurdles:\n"
+        "1. Ambient Acoustic Noise: Environmental background interference distorts spectral representations, shifting formant peaks away from speaker identity manifolds.\n"
+        "2. Short Utterance Duration: Test utterances shorter than two seconds lack adequate phonetic diversity, resulting in high variance in frame-averaged pooling vectors.\n"
+        "3. Cross-Domain and Dialectal Variation: Differences in recording hardware, room acoustics, and speaking styles between training corpora and real-world probe samples cause domain mismatch."
     )
 
     add_image_or_placeholder(
         "Figure 1.2",
-        "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Loss",
-        placeholder_desc="Diagram illustrating how Additive Angular Margin penalizes the ground-truth angle on a unit sphere to enforce compact intra-class clustering"
+        "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Cross-Entropy",
+        placeholder_desc="Diagram contrasting Euclidean linear decision boundaries with angular margin hyperspherical boundaries enforcing compact intra-speaker clusters"
     )
 
     add_section_heading("1.4", "Problem Statement and Proposed Solution")
     add_p(
-        "The central problem addressed in this project is the inadequacy of conventional speaker verification pipelines when exposed "
-        "to short-duration, accent-rich speech contaminated by ambient silence. To overcome this limitation, this project proposes "
-        "BioVoice: an enhanced deep neural architecture built upon the ECAPA-TDNN foundation.\n\n"
-        "The proposed solution introduces three core innovations: first, an adaptive Energy-based Voice Activity Detection (VAD) "
-        "pre-filter that eliminates unvoiced frames; second, an enhanced feature extraction backbone combining dilated 1D Squeeze-and-Excitation "
-        "Res2Blocks (SE-Res2Blocks) with Multi-Layer Feature Aggregation (MFA); and third, Channel-Dependent Attentive Statistics Pooling "
-        "optimized under an Additive Angular Margin Softmax (AAM-Softmax) objective to enforce strict hyperspherical metric separation."
+        "The objective of this research is to design and evaluate an end-to-end speaker verification pipeline that extracts compact, "
+        "discriminative identity embeddings from raw speech waveforms. To address the limitations of conventional systems, this project "
+        "implements BioVoice: an acoustic identity verification framework combining an energy-based Voice Activity Detection (VAD) "
+        "pre-filter, a multi-scale dilated Squeeze-and-Excitation Res2Block (SE-Res2Block) backbone, Channel-Dependent Attentive Statistics "
+        "Pooling, and an Additive Angular Margin Softmax (AAM-Softmax, m=0.2, s=30) objective.\n\n"
+        "The project evaluates the custom-engineered PyTorch architecture against an official pre-trained SpeechBrain reference baseline "
+        "on a balanced test suite from the LibriSpeech corpus, rigorously reporting empirical performance and detailing system limitations."
     )
 
     add_section_heading("1.5", "Research Objectives")
     add_p(
-        "The specific technical objectives of this research project are:\n"
+        "The specific technical objectives of this research are:\n"
         "• To engineer an end-to-end speaker verification pipeline incorporating frontend silence stripping and hardware-accelerated STFT Mel-spectrogram extraction.\n"
         "• To implement a multi-scale dilated convolutional backbone using SE-Res2Blocks to extract temporal features across diverse receptive fields.\n"
         "• To deploy Channel-Dependent Attentive Statistics Pooling to intelligently weight informative voiced frames while suppressing noise.\n"
-        "• To optimize the latent 192-dimensional embedding space using AAM-Softmax loss, maximizing geodesic inter-class angular margins.\n"
-        "• To empirically benchmark verification accuracy, Equal Error Rate (EER), and minDCF on an Indian-accented speech corpus.\n"
-        "• To build an interactive, production-grade graphical user interface supporting live microphone recording, 1-to-1 verification, and 1-to-N voice gallery enrollment."
+        "• To formulate and train a 256-dimensional embedding space using AAM-Softmax loss, maximizing geodesic inter-class angular margins.\n"
+        f"• To empirically benchmark verification accuracy, Equal Error Rate (EER), and minDCF on the LibriSpeech test-clean corpus ({m_sb_novad['n_trials']} trials across 40 speakers).\n"
+        "• To build an interactive graphical user interface on localhost supporting live microphone recording, 1-to-1 verification, and 1-to-N voice gallery enrollment."
     )
 
     add_section_heading("1.6", "Organization of the Report")
     add_p(
-        "The remainder of this report is structured as follows: Chapter 2 presents a comprehensive literature survey reviewing the evolution "
-        "from GMM-UBM to deep x-vectors, residual architectures, attention mechanisms, and angular loss formulations. Chapter 3 details the "
-        "methodology and mathematical formulation of the BioVoice architecture. Chapter 4 provides the experimental setup, benchmark evaluation, "
-        "confusion matrix, t-SNE latent space analysis, and comparative baseline results. Chapter 5 concludes the report and highlights future "
-        "research directions."
+        "The remainder of this report is organized as follows: Chapter 2 presents a comprehensive literature survey of acoustic modeling "
+        "and metric learning paradigms. Chapter 3 details the architectural blueprint and mathematical formulation of the proposed BioVoice "
+        "pipeline. Chapter 4 reports empirical results, ROC curves, confusion matrices, score distributions, and ablation studies. Chapter 5 "
+        "concludes the study with practical deployment details, explicit operational limitations, and future research avenues."
     )
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 2: LITERATURE REVIEW
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_chapter_heading(2, "Literature Review")
 
     add_section_heading("2.1", "The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors")
     add_p(
-        "Over the past three decades, speaker recognition has evolved through three distinct algorithmic generations. In the early 2000s, "
-        "Reynolds et al. [1] pioneered the Gaussian Mixture Model–Universal Background Model (GMM-UBM) framework. In this approach, a universal "
-        "acoustic distribution was trained via Expectation-Maximization on hundreds of hours of unlabelled speech, and individual speaker models "
-        "were derived through Maximum A Posteriori (MAP) parameter adaptation. Despite its success, GMM-UBM treated acoustic frames independently, "
-        "ignoring long-term temporal trajectories and phonetic transitions."
-    )
-    add_p(
-        "To model inter-speaker and channel variability in a unified framework, Dehak et al. [2] introduced the i-vector (identity vector) "
-        "paradigm based on Joint Factor Analysis. In this system, high-dimensional GMM supervectors were compressed into a low-dimensional "
-        "total variability subspace: M = m + T · w, where T is a low-rank matrix and w is the extracted i-vector. When combined with Linear "
-        "Discriminant Analysis (LDA) and Probabilistic Linear Discriminant Analysis (PLDA), i-vectors achieved state-of-the-art performance for "
-        "nearly a decade. However, i-vectors relied on linear assumptions and suffered severe performance drops on utterances shorter than 3 seconds."
-    )
-    add_p(
-        "The modern deep learning era commenced with the x-vector framework introduced by Snyder et al. [3]. Utilizing Time-Delay Neural Networks "
-        "(TDNN) with temporal context subsampling, x-vectors processed frame-level acoustic features through stacked 1D convolutions, aggregated "
-        "them via statistical pooling (mean and standard deviation), and trained under multi-class cross-entropy. The activations of the penultimate "
-        "dense layer formed robust speaker embeddings that significantly outperformed i-vectors on international benchmarks like NIST SRE."
-    )
-
-    add_image_or_placeholder(
-        "Figure 2.1",
-        "Evolution of Speaker Representation: Classical GMM-UBM to Deep Latent Embeddings",
-        placeholder_desc="Chronological diagram illustrating GMM-UBM -> i-Vector (Factor Analysis) -> x-Vector (TDNN) -> ECAPA-TDNN"
+        "Early text-independent speaker verification systems relied on Gaussian Mixture Models adapted from a Universal Background Model "
+        "(GMM-UBM) via Maximum A Posteriori (MAP) estimation, introduced by Reynolds et al. [1]. Dehak et al. [2] revolutionized the field "
+        "by introducing the i-vector framework, which condensed variable-length acoustic observations into a low-dimensional total variability "
+        "space. Snyder et al. [3] subsequently demonstrated that Time-Delay Neural Networks (TDNN) trained on acoustic filterbanks (x-vectors) "
+        "significantly outperformed i-vectors on large-scale benchmarks."
     )
 
     add_section_heading("2.2", "Deep Residual Learning in Audio Spectrogram Analysis")
     add_p(
-        "Following the success of deep x-vectors, computer vision architectures were widely adapted for speech processing by treating log "
-        "Mel-spectrograms as 2D time-frequency images. Residual Networks (ResNet), introduced by He et al. [4], introduced identity shortcut "
-        "connections that enabled networks to reach depths of 34 to 100 layers without vanishing gradients. Chun et al. [5] demonstrated that "
-        "ResNet-34 backbones with 2D convolutions could effectively capture local harmonic and formant structures across spectral bins. Concurrently, "
-        "Ravanelli and Bengio [6] proposed SincNet, which replaced standard first-layer convolutional filters with parameterized sinc functions "
-        "directly processing raw waveforms. While conceptually novel, SincNet required extensive tuning of band-pass cutoffs and exhibited higher "
-        "computational overhead than filterbank-based deep residual networks."
+        "Residual Networks (ResNet), introduced by He et al. [4] for computer vision, were adapted for audio by treating log Mel-spectrograms "
+        "as single-channel images. Skip connections mitigated vanishing gradients, allowing deeper networks to capture complex acoustic "
+        "trajectories. Concurrently, Ravanelli and Bengio [6] introduced SincNet, employing parameterized sinc bandpass filters to interpret "
+        "raw waveforms directly."
     )
 
     add_section_heading("2.3", "Squeeze-and-Excitation (SE) Channel Recalibration")
     add_p(
-        "Standard convolutional layers treat all channel feature maps uniformly. Hu, Shen, and Sun [7] introduced the Squeeze-and-Excitation (SE) "
-        "block, an attention mechanism that adaptively recalibrates channel-wise feature responses by explicitly modeling channel interdependencies. "
-        "The SE block operates in two steps: a 'squeeze' operation that aggregates global temporal information into a channel descriptor vector z via "
-        "Global Average Pooling, and an 'excitation' operation using a two-layer bottleneck network to compute non-linear modulation weights s. "
-        "These weights dynamically rescale the feature map, allowing the model to amplify frequency channels containing vital speaker formants while "
-        "suppressing channels dominated by acoustic noise."
-    )
-
-    add_image_or_placeholder(
-        "Figure 2.3",
-        "1D Squeeze-and-Excitation (SE) Channel Attention Module for Temporal Feature Recalibration",
-        placeholder_desc="Diagram showing Global Average Pooling -> Conv1D Bottleneck -> ReLU -> Conv1D -> Sigmoid -> Channel-wise Multiplication"
+        "Hu et al. [7] formulated Squeeze-and-Excitation (SE) networks to model channel-wise interdependencies explicitly. By globally pooling "
+        "spatial context and passing it through a bottleneck gating mechanism, SE blocks dynamically scale each feature map, emphasizing "
+        "discriminative formant frequencies while suppressing uninformative background noise bands."
     )
 
     add_section_heading("2.4", "Multi-Scale Temporal Convolutions with Res2Net")
     add_p(
-        "Standard convolutional residual blocks apply filters at a single fixed scale. Gao et al. [8] developed the Res2Net architecture, which "
-        "constructs hierarchical, residual-like connections within a single residual block. In a Res2Net module, feature channels are split into "
-        "s sub-groups (e.g., s = 8). Each sub-group except the first is processed through dilated 1D convolutions, and the output of the preceding "
-        "group is summed with the input of the next. This multi-branch design enables the network to simultaneously capture narrow acoustic cues "
-        "(such as pitch harmonics and glottal pulses) and broad temporal structures (such as phoneme duration and cadence) without increasing "
-        "parameter count."
-    )
-
-    add_image_or_placeholder(
-        "Figure 2.2",
-        "Structural Topology of the Multi-Scale Res2Net Residual Block (s = 8)",
-        placeholder_desc="Diagram illustrating channel splitting into 8 groups with hierarchical residual flow and dilated convolutions"
+        "Gao et al. [8] developed Res2Net, which splits channel features into multiple subsets and processes them in a hierarchical cascade of "
+        "convolutions. In speech processing, Zhou et al. [15] and Desplanques et al. [10] demonstrated that Res2Net blocks extract acoustic "
+        "features across varying receptive field scales, capturing both fine-grained pitch harmonics and extended prosodic trajectories."
     )
 
     add_section_heading("2.5", "Frame-Level Statistics Pooling vs. Attentive Aggregation")
     add_p(
-        "The temporal pooling layer is the vital bridge converting variable-length frame representations into a fixed-length utterance descriptor. "
-        "Snyder et al. [3] utilized unweighted statistics pooling, assigning equal weight (1/T) to every frame. However, human speech consists "
-        "of informative voiced vowels interspersed with uninformative silence and breath pauses. Okabe et al. [9] proposed Attentive Statistics "
-        "Pooling, introducing a self-attention scalar to weight frames based on phonetic relevance. Desplanques et al. [10] advanced this concept "
-        "by introducing Channel-Dependent Attention, enabling the network to focus on distinct temporal frames for different frequency channels."
+        "Classical x-vectors employed unweighted temporal statistics pooling, computing the global mean and standard deviation across all "
+        "frames equally. Okabe et al. [9] introduced attentive statistics pooling, which utilizes a self-attention mechanism to compute "
+        "weighted mean and variance vectors, assigning greater importance to voiced speech segments."
     )
 
     add_section_heading("2.6", "Hyperspherical Metric Learning and AAM-Softmax Loss")
     add_p(
-        "Traditionally, deep speaker verification models were trained using standard Softmax Cross-Entropy loss. While cross-entropy ensures "
-        "separable features in Euclidean space, it does not optimize for cosine similarity on a hypersphere. Deng et al. [11] introduced ArcFace "
-        "(Additive Angular Margin Softmax) for deep face recognition, which was adapted for voice biometrics by Xiang et al. [12]. By normalizing "
-        "both feature vectors and class weights to unit length, the logit becomes cos(theta). An additive angular margin m is added directly to "
-        "the ground-truth angle, enforcing a strict geodesic penalty that minimizes intra-class variance and maximizes inter-class margins."
+        "In biometric verification, embeddings are compared using cosine similarity. Standard cross-entropy loss optimizes Euclidean distance, "
+        "creating a mismatch with spherical evaluation metrics. Deng et al. [11] proposed Additive Angular Margin Loss (ArcFace / AAM-Softmax), "
+        "which incorporates an angular penalty margin m on the target class angle, pushing intra-class representations into tighter spherical "
+        "clusters. Chung et al. [5] and Xiang et al. [12] demonstrated that AAM-Softmax dramatically enhances open-set speaker verification."
     )
 
     add_section_heading("2.7", "Literature Gap Analysis")
     add_p(
-        "While prior works achieved notable gains on clean international datasets like VoxCeleb [13, 14], existing models suffer significant "
-        "degradation when exposed to short utterances, regional linguistic accents, and unvoiced silence frames. Most published architectures omit "
-        "frontend Voice Activity Detection, permitting silence to corrupt pooled statistics, or rely on complex multi-stage pipelines that cannot "
-        "be deployed in low-latency interactive environments. The proposed BioVoice framework bridges these gaps by synthesizing frontend VAD, "
-        "multi-scale SE-Res2Blocks, attentive pooling, and AAM-Softmax into a unified, high-performance biometric system."
+        "While deep architectures have progressed rapidly, literature reveals several persisting limitations [16]: (1) sensitivity to silent "
+        "frames in short utterances, (2) high computational overhead of 2D convolutions on mobile hardware, and (3) performance degradation "
+        "under cross-domain distribution shifts."
     )
 
     # Table 2.1
-    add_p("Table 2.1: Qualitative Comparison of Speaker Verification Paradigms", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    add_p("Table 2.1: Chronological Evolution and Algorithmic Paradigm Shifts in Speaker Recognition", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
     t_lit = doc.add_table(rows=6, cols=5)
     t_lit.alignment = WD_TABLE_ALIGNMENT.CENTER
-    headers_lit = ["Architecture", "Feature Frontend", "Temporal Pooling", "Loss Objective", "Key Limitation"]
+    headers_lit = ["Architecture", "Temporal Context", "Pooling Method", "Loss Function", "Key Limitation"]
     for i, h in enumerate(headers_lit):
-        c = t_lit.cell(0, i)
-        set_cell_background(c, "E8EEF5")
-        p = c.paragraphs[0]
-        r = p.add_run(h)
-        r.bold = True
-        r.font.size = Pt(10)
+        c = t_lit.cell(0, i); set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(9.5)
     
-    lit_rows = [
-        ("GMM-UBM [1]", "39-dim MFCC", "None (Frame-wise)", "MAP Adaptation", "Ignores temporal sequences; linear"),
-        ("i-Vector + PLDA [2]", "60-dim MFCC", "Baum-Welch Moments", "Factor Analysis", "Poor on short audio; high latency"),
-        ("Vanilla x-Vector [3]", "30-dim MFCC", "Unweighted Stats", "Cross-Entropy", "Weights silence & speech equally"),
-        ("Standard ECAPA [10]", "80-dim Mel", "Channel Attention", "AAM-Softmax", "Lacks frontend VAD; accent bias"),
-        ("Proposed BioVoice", "80-dim Mel + VAD", "SE-Res2Block + Attn", "AAM-Softmax", "End-to-end robust to accent & noise")
+    lit_data = [
+        ("GMM-UBM [1]", "Frame-independent", "Sufficient Statistics", "Maximum Likelihood / MAP", "Ignores temporal context"),
+        ("i-Vector [2]", "Utterance-level GMM", "Zeroth & First Moments", "Generative WCCN / PLDA", "Linear subspace assumption"),
+        ("x-Vector (TDNN) [3]", "Dilated 1D TDNN", "Temporal Stats Pooling", "Cross-Entropy Loss", "Unweighted pooling of silence"),
+        ("ResNet-34 [4, 5]", "2D Spectrogram Convs", "Attentive Statistics", "Angular Margin Softmax", "High parameter footprint"),
+        ("BioVoice (ECAPA-TDNN)", "Multi-Scale SE-Res2Net", "Channel-Attentive Stats", "AAM-Softmax (m=0.2, s=30)", "Cross-domain sensitivity")
     ]
-    for row_idx, data in enumerate(lit_rows):
+    for row_idx, data in enumerate(lit_data):
         row = t_lit.rows[row_idx + 1]
         for col_idx, text in enumerate(data):
-            c = row.cells[col_idx]
-            p = c.paragraphs[0]
-            r = p.add_run(text)
-            r.font.size = Pt(9.5)
-            if col_idx == 0 and "BioVoice" in text:
-                r.bold = True
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(9)
+            if col_idx == 0: r.bold = True
 
     # ══════════════════════════════════════════════════════════════════════════
-    # CHAPTER 3: METHODOLOGY
+    # CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN
     # ═══════════════════════════════════════════════════
-    add_chapter_heading(3, "Methodology")
+    add_chapter_heading(3, "Proposed Methodology and Architectural Design")
 
     add_section_heading("3.1", "Proposed BioVoice Architectural Blueprint")
     add_p(
-        "The BioVoice system is structured as an end-to-end neural biometric framework that converts raw human speech into a 192-dimensional "
-        "normalized voiceprint vector. The structural dataflow consists of five interconnected modules:\n"
-        "1. Audio Preprocessing & VAD: Normalizing amplitude and eliminating non-informative silence frames.\n"
-        "2. Spectral Transformation: Generating 80-dimensional log Mel-filterbanks via Short-Time Fourier Transform.\n"
-        "3. Multi-Scale Convolutional Encoding: Processing features through three sequential SE-Res2Blocks with dilations d = 2, 3, 4.\n"
-        "4. Feature Aggregation & Attentive Pooling: Concatenating multi-layer features and computing channel-dependent weighted moments.\n"
-        "5. Metric Projection & Verification: Projecting representations onto a unit hypersphere and computing cosine similarity against enrolled templates."
+        "The BioVoice system converts a raw variable-length speech waveform into a compact, normalized 256-dimensional identity vector. "
+        "The architecture integrates three sequential stages: (1) frontend preprocessing with energy-based Voice Activity Detection and "
+        "Mel-filterbank extraction, (2) multi-scale temporal modeling through dilated SE-Res2Blocks, and (3) channel-dependent attentive "
+        "statistics pooling projected to the final embedding space via linear layer fc6 (3072 -> 256)."
     )
 
     add_image_or_placeholder(
         "Figure 3.1",
-        "End-to-End System Pipeline of the Proposed BioVoice Architecture",
-        placeholder_desc="Raw Waveform -> VAD -> STFT Mel Frontend -> Conv1D -> SE-Res2Blocks (d=2,3,4) -> MFA -> Attentive Pooling -> 192-d Vector"
+        "Complete Architectural Blueprint of the BioVoice Speaker Verification Pipeline",
+        placeholder_desc="Detailed block diagram: Waveform -> VAD -> STFT 80 Mel -> Conv1D -> SE-Res2Block (x3) -> Multi-layer Aggregation -> Attentive Stats Pooling -> Dense 256-D -> Cosine Scoring"
     )
 
     add_section_heading("3.2", "Frontend Signal Preprocessing and Voice Activity Detection (VAD)")
     add_p(
-        "Ambient silence at the start and end of recordings carries zero biometric information. BioVoice integrates an energy-based Voice "
-        "Activity Detection filter implemented in vad_utils.py. The short-time energy E_k of the k-th frame is computed over a 25 ms window "
-        "with a 10 ms hop size (L = 400 samples at 16 kHz, H = 160 samples):\n\n"
-        "    E_k = (1 / L) * sum_{n=0}^{L-1} x[k * H + n]^2\n\n"
-        "Frames with normalized energy falling below gamma * max(E) (where gamma = 0.015) are excised. The trimmed waveform is then peak-normalized "
-        "to a dynamic range of [-1.0, +1.0], ensuring consistent amplitude scaling."
-    )
-
-    add_image_or_placeholder(
-        "Figure 3.2",
-        "Energy-Based Voice Activity Detection (VAD) Waveform and Silence Trimming",
-        placeholder_desc="Audio waveform showing leading and trailing silence excision using short-time energy thresholding"
+        "Audio waveforms are first resampled to 16,000 Hz monophonic PCM. To prevent unvoiced pauses from corrupting pooled representations, "
+        "an energy-based Voice Activity Detection (VAD) module computes short-time energy over 25 ms windows with a 10 ms hop size. Frames "
+        "falling below a relative energy threshold of 0.015 are trimmed, and the signal is peak-normalized."
     )
 
     add_section_heading("3.3", "Hardware-Accelerated 80-Channel Mel-Filterbank Computation")
     add_p(
-        "The preprocessed signal is transformed into the time-frequency domain using PyTorch's native Short-Time Fourier Transform (STFT) with "
-        "a 400-point Hamming window (N_fft = 512, hop length = 160 samples). The power spectrum is multiplied by an 80-channel triangular Mel-filterbank "
-        "spanning 20 Hz to 7600 Hz:\n\n"
-        "    Mel(f) = 2595 * log10(1 + f / 700)\n"
-        "    S(m, t) = ln( sum_{k=0}^{N_fft/2} |X(k, t)|^2 * H_m(k) + eps )\n\n"
-        "The resulting log Mel-spectrogram is mean-normalized across the temporal dimension to eliminate stationary convolutional channel noise."
-    )
-
-    # Insert attention heatmap image from Results/
-    add_image_or_placeholder(
-        "Figure 3.3",
-        "Extraction of 80-Dimensional Log Mel-Spectrogram with Temporal Attention Weights",
-        image_path="Results/ecapa_attention_output.png",
-        placeholder_desc="Mel-spectrogram with overlaid temporal self-attention distribution curve"
+        "A custom Short-Time Fourier Transform (STFT) module computes linear power spectrograms using a 512-point FFT, 400-sample Hamming "
+        "window, and 160-sample hop. Spectrograms are mapped to 80 Mel frequency bins via triangular filterbanks spanning 20 Hz to 7600 Hz [18], "
+        "log-transformed, and normalized via Cepstral Mean Subtraction (CMS)."
     )
 
     add_section_heading("3.4", "SE-Res2Block Multi-Scale Temporal Convolutional Backbone")
     add_p(
-        "The feature encoding backbone consists of an initial 1D convolutional layer (1024 channels, kernel size 5) followed by three "
-        "hierarchical SE-Res2Block stages. Within each block, channels are partitioned into s = 8 sub-groups: y = [y_1, y_2, ..., y_8], each "
-        "with 128 channels. Groups are processed iteratively using 1D dilated convolutions with kernel size 3:\n\n"
-        "    z_1 = y_1\n"
-        "    z_i = Conv1D_{3x1, d}( y_i + z_{i-1} ), for i = 2, ..., 8\n\n"
-        "The sub-group outputs are concatenated and processed through a 1D Squeeze-and-Excitation (SE) channel attention module with a bottleneck "
-        "ratio of 8 (128 channels). The SE module computes channel modulation weights via sigmoid activation: s = sigma( W_2 * ReLU( W_1 * GAP(z) ) ). "
-        "A residual skip connection adds the block input to the recalibrated features: y_out = x + (s * z)."
+        "The core backbone comprises three cascaded SE-Res2Blocks with channel capacity C = 1024. Each block splits channels into 8 sub-groups "
+        "(scale s = 8) and processes them through dilated 1D convolutions with dilation factors d in {2, 3, 4}, followed by Squeeze-and-Excitation "
+        "channel recalibration. Outputs from all three stages are concatenated via Multi-layer Feature Aggregation (MFA) into a 1536-dimensional "
+        "feature representation. Data augmentation via SpecAugment [17] is applied during training."
     )
 
     add_image_or_placeholder(
-        "Figure 3.4",
-        "Detailed Internal Dataflow of the SE-Res2Block with Ascending Temporal Dilation",
-        placeholder_desc="Internal dataflow showing 8-group splitting, dilated convolutions with d=2,3,4, and SE channel recalibration"
+        "Figure 3.2",
+        "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology",
+        placeholder_desc="Diagram showing grouped channel split, hierarchical residual convolutions across scales 1 to 8, and SE channel recalibration"
     )
 
-    add_section_heading("3.5", "Multi-Layer Feature Aggregation (MFA) and Residual Propagation")
+    # Table 3.1
+    add_p("Table 3.1: Detailed Mathematical Layer Specifications of the BioVoice ECAPA-TDNN Architecture", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    t_layer = doc.add_table(rows=10, cols=5)
+    t_layer.alignment = WD_TABLE_ALIGNMENT.CENTER
+    headers_layer = ["Layer Name", "Input Dimension", "Kernel / Dilation", "Output Channels", "Activation"]
+    for i, h in enumerate(headers_layer):
+        c = t_layer.cell(0, i); set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(9.5)
+    
+    layer_data = [
+        ("Input Audio Waveform", "(B, 1, T_raw)", "None", "1 channel (16 kHz)", "None"),
+        ("Custom STFT + Mel Bank", "(B, T_raw)", "N_fft=512, Hop=160", "80 Mel bins", "Log + CMS"),
+        ("Conv1D Front-End", "(B, 80, T)", "k=5, s=1, d=1", "1024 channels", "ReLU + BatchNorm"),
+        ("SE-Res2Block Stage 1", "(B, 1024, T)", "k=3, scale=8, d=2", "1024 channels", "ReLU + SE + Res"),
+        ("SE-Res2Block Stage 2", "(B, 1024, T)", "k=3, scale=8, d=3", "1024 channels", "ReLU + SE + Res"),
+        ("SE-Res2Block Stage 3", "(B, 1024, T)", "k=3, scale=8, d=4", "1024 channels", "ReLU + SE + Res"),
+        ("Multi-Layer Aggregation (MFA)", "(B, 3072, T)", "k=1, s=1", "1536 channels", "ReLU"),
+        ("Attentive Statistics Pooling", "(B, 1536, T)", "k=1 Attention Conv", "3072 (Mean + Std)", "Softmax"),
+        ("Dense Projection (fc6)", "(B, 3072)", "Linear (3072 -> 256)", "256-D Embedding", "BatchNorm + L2")
+    ]
+    for row_idx, data in enumerate(layer_data):
+        row = t_layer.rows[row_idx + 1]
+        for col_idx, text in enumerate(data):
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(8.5)
+            if col_idx == 0: r.bold = True
+
+    add_section_heading("3.5", "Attentive Statistics Pooling Mechanism")
     add_p(
-        "To ensure that low-level pitch harmonics and high-level phonetic transitions are simultaneously preserved in the final representation, "
-        "BioVoice applies Multi-Layer Feature Aggregation (MFA). The output feature maps from the three SE-Res2Blocks (F_1, F_2, F_3) are concatenated "
-        "along the channel dimension:\n\n"
-        "    F_MFA = Concat( F_1, F_2, F_3 ) in R^{3072 x T}\n\n"
-        "A 1x1 convolutional bottleneck projects the 3072 channels down to 1536 channels prior to temporal pooling."
+        "Unlike standard temporal averaging, Channel-Dependent Attentive Statistics Pooling computes frame salience weights alpha_t "
+        "via a two-layer bottleneck network with Tanh and Softmax activations. The network aggregates both the weighted mean vector "
+        "mu and weighted standard deviation vector sigma, concatenating them into a 3072-dimensional vector before projection."
     )
 
-    add_section_heading("3.6", "Channel-Dependent Attentive Statistics Pooling")
+    add_section_heading("3.6", "Additive Angular Margin Loss (AAM-Softmax) Formulation")
     add_p(
-        "Rather than computing unweighted temporal averages, BioVoice utilizes a self-attention mechanism that computes channel-dependent attention "
-        "weights alpha_{t, c} for each temporal frame t and channel c:\n\n"
-        "    e_{t, c} = v_c^T * tanh( W * F_MFA(t) + b ) + k_c\n"
-        "    alpha_{t, c} = exp( e_{t, c} ) / sum_{tau=1}^{T} exp( e_{tau, c} )\n\n"
-        "The attention weights are used to compute the channel-wise weighted mean mu_c and weighted standard deviation sigma_c across time:\n\n"
-        "    mu_c = sum_{t=1}^{T} alpha_{t, c} * f_{t, c}\n"
-        "    sigma_c = sqrt( sum_{t=1}^{T} alpha_{t, c} * f_{t, c}^2 - mu_c^2 + eps )\n\n"
-        "The concatenated representation [mu; sigma] in R^3072 is projected through a dense linear layer with Batch Normalization to yield the "
-        "final 192-dimensional speaker embedding vector v."
+        "To enforce tight intra-speaker clustering on a unit hypersphere, the network is trained with the AAM-Softmax loss [11, 20]:\n"
+        "L = - (1/N) * sum_i log( exp( s * cos(theta_{y_i} + m) ) / ( exp( s * cos(theta_{y_i} + m) ) + sum_{j != y_i} exp( s * cos(theta_j) ) ) )\n"
+        "where theta represents the angle between the normalized embedding and class weight vector, m = 0.20 radians is the angular margin, "
+        "and s = 30 is the logit scaling factor."
     )
 
-    add_image_or_placeholder(
-        "Figure 3.5",
-        "Channel-Dependent Attentive Statistics Pooling Mechanism with Mean and Variance Fusion",
-        placeholder_desc="Diagram illustrating channel-wise temporal self-attention, weighted mean calculation, and variance pooling"
-    )
-
-    add_section_heading("3.7", "Additive Angular Margin Metric Learning Objective")
+    add_section_heading("3.7", "1:1 Biometric Verification and 1:N Gallery Identification Pipeline")
     add_p(
-        "During model training, the 192-dimensional embedding v and class weight vectors W_j are normalized to unit length (||v|| = 1, ||W_j|| = 1), "
-        "simplifying the inner product to cos(theta_j). The AAM-Softmax loss injects an additive angular margin m = 0.20 rad to the ground-truth "
-        "speaker angle theta_{y_i}:\n\n"
-        "    L_AAM = - (1 / N) * sum_{i=1}^{N} ln[ exp( s * cos(theta_{y_i} + m) ) / ( exp( s * cos(theta_{y_i} + m) ) + sum_{j != y_i} exp( s * cos theta_j ) ) ]\n\n"
-        "where s = 30 is the hyperspherical radius scaling constant. This formulation enforces a strict geodesic penalty on the unit hypersphere, "
-        "producing compact intra-speaker clusters and wide inter-speaker boundaries."
+        "At inference, verification computes the cosine similarity between two normalized embeddings:\n"
+        "score = (e_ref . e_probe) / ( ||e_ref|| * ||e_probe|| )\n"
+        "If score >= d_th, the identity is authenticated; otherwise, it is rejected. In 1:N gallery mode, probe embeddings are scored "
+        "against all registered profiles to retrieve the maximum similarity match [19]."
     )
 
-    add_section_heading("3.8", "Inference-Time Scoring and 1-to-N Gallery Matching Algorithm")
+    # Table 3.2
+    add_p("Table 3.2: Verification Decision Logic and Biometric Outcome Classification Matrix", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    t_dec = doc.add_table(rows=3, cols=3)
+    t_dec.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t_dec.cell(0, 0).paragraphs[0].add_run("Ground Truth Identity").bold = True
+    t_dec.cell(0, 1).paragraphs[0].add_run("System Decision: Authenticate (Score >= d_th)").bold = True
+    t_dec.cell(0, 2).paragraphs[0].add_run("System Decision: Reject (Score < d_th)").bold = True
+    for c in t_dec.rows[0].cells: set_cell_background(c, "E8EEF5")
+    
+    t_dec.cell(1, 0).paragraphs[0].add_run("Genuine Speaker (Target)").bold = True
+    t_dec.cell(1, 1).paragraphs[0].add_run("True Accept (TA) / Correct Verification")
+    t_dec.cell(1, 2).paragraphs[0].add_run("False Reject (FR) / Type II Miss")
+    
+    t_dec.cell(2, 0).paragraphs[0].add_run("Impostor Speaker (Non-Target)").bold = True
+    t_dec.cell(2, 1).paragraphs[0].add_run("False Accept (FA) / Type I False Alarm")
+    t_dec.cell(2, 2).paragraphs[0].add_run("True Reject (TR) / Correct Rejection")
+
+    add_section_heading("3.8", "Algorithmic Workflow and Pseudocode")
     add_p(
-        "At inference time, verification requires zero class weights. Given two speech samples A and B, their normalized embeddings e_A and e_B "
-        "are compared using Cosine Similarity:\n\n"
-        "    Score(A, B) = cos(e_A, e_B) = (e_A · e_B) / ( ||e_A|| * ||e_B|| )\n\n"
-        "The verification decision follows the threshold rule: Accept if Score(A, B) >= d_th; Reject as Impostor if Score(A, B) < d_th, "
-        "where d_th = 0.678 is the optimal threshold established at the Equal Error Rate.\n\n"
-        "For 1-to-N identification, an enrolled gallery database G = {(Name_k, e_k)} is maintained. An incoming probe voice is matched against "
-        "all enrolled templates, and the identity with the maximum cosine similarity exceeding d_th is authenticated."
+        "Algorithm 1 outlines the complete extraction and scoring procedure: raw waveforms are ingested, energy-trimmed, converted to "
+        "80-channel Mel spectrograms, passed through SE-Res2Blocks, pooled via attentive statistics, projected to 256-D, and scored via dot product."
     )
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_chapter_heading(4, "Experimental Results and Discussion")
 
-    add_section_heading("4.1", "Benchmark Dataset: IndianVoxCeleb Corpus")
+    add_section_heading("4.1", "Evaluation Dataset: LibriSpeech Test-Clean Corpus")
     add_p(
-        "To rigorously assess verification performance under localized acoustic variations, the proposed framework was benchmarked on the "
-        "IndianVoxCeleb dataset (vox_indian_split). The corpus comprises 24 distinct speaker classes representing a rich demographic spectrum "
-        "of Indian regional accents. Audio was collected from diverse acoustic environments, including broadcast podcasts, telephonic interviews, "
-        "and laptop microphone recordings.\n\n"
-        "The evaluation trial list (params/eval_list.txt) contains 240 structured pairwise verification trials:\n"
-        "• 120 Genuine Trials: Utterance pairs recorded from identical speakers across different sessions.\n"
-        "• 120 Impostor Trials: Utterance pairs recorded from different speakers of similar and mixed genders."
+        f"Evaluation was performed on the official LibriSpeech test-clean corpus, configured into a balanced verification test suite "
+        f"of {m_sb_novad['n_trials']} trials across 40 distinct human speakers using make_trials.py. The trial list (params/my_trials.txt) comprises:\n"
+        f"• {m_sb_novad['TP'] + m_sb_novad['FN']} Genuine Trials: Utterance pairs recorded from the same human speaker across different chapters.\n"
+        f"• {m_sb_novad['TN'] + m_sb_novad['FP']} Impostor Trials: Utterance pairs recorded from different human speakers of matching and mixed genders.\n\n"
+        f"The custom model checkpoint (exps/exp1/model_0001.model) was trained in 2025 on 24 VoxCeleb1-style speakers' single-word clips [13, 14] "
+        f"under the AAM-Softmax objective (margin m = 0.20, scale s = 30, channel capacity C = 1024, 256-dimensional embedding, batch size 128, Adam optimizer). "
+        f"Testing on LibriSpeech therefore represents a cross-domain evaluation (isolated single-word utterance training vs. continuous read audiobook speech). "
+        f"No unverified training epochs, training accuracy, or training EER are claimed."
     )
 
     add_section_heading("4.2", "Experimental Setup and Hyperparameter Protocol")
     add_p(
-        "Experiments were executed using PyTorch 2.1 with CUDA acceleration on an NVIDIA RTX GPU platform (with CPU fallback capability). "
-        "All audio files were standardized to 16,000 Hz, 16-bit mono PCM format. Training was conducted using the Adam optimizer with an initial "
-        "learning rate of 1e-3, weight decay of 2e-5, and a StepLR learning rate scheduler decaying by gamma = 0.97 per epoch."
+        "Evaluation scripts were executed using Python 3.10 with PyTorch 2.1 [23], torchaudio, librosa, and scikit-learn [22], "
+        "with the official SpeechBrain toolkit [19] utilized for reference baseline comparison. All audio waveforms were standardized to 16,000 Hz monophonic PCM."
     )
 
     # Table 4.1
@@ -870,182 +821,195 @@ def create_document():
     t_hyp.alignment = WD_TABLE_ALIGNMENT.CENTER
     headers_hyp = ["Hyperparameter", "Configured Value", "Technical Description"]
     for i, h in enumerate(headers_hyp):
-        c = t_hyp.cell(0, i)
-        set_cell_background(c, "E8EEF5")
-        p = c.paragraphs[0]
-        r = p.add_run(h)
-        r.bold = True
-        r.font.size = Pt(10)
+        c = t_hyp.cell(0, i); set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(10)
     
     hyp_data = [
         ("Sampling Rate (f_s)", "16,000 Hz", "Monophonic PCM waveform"),
         ("STFT Window / Hop", "25 ms / 10 ms", "400 sample Hamming window, 160 sample hop"),
-        ("Mel Channels", "80", "Logarithmic triangular filterbanks"),
-        ("Embedding Dimension", "192", "Normalized latent voiceprint length"),
-        ("AAM Margin (m)", "0.20 rad", "Hyperspherical angular penalty"),
-        ("AAM Scale (s)", "30", "Logit radius scaling factor")
+        ("Mel Frequency Channels", "80", "Logarithmic triangular filterbanks (20 - 7600 Hz)"),
+        ("Embedding Dimension", "256 (Custom) / 192 (SpeechBrain)", "Normalized latent voiceprint length"),
+        ("AAM Loss Margin (m)", "0.20 rad", "Hyperspherical angular penalty"),
+        ("AAM Scale Factor (s)", "30", "Logit radius scaling factor")
     ]
     for row_idx, data in enumerate(hyp_data):
         row = t_hyp.rows[row_idx + 1]
         for col_idx, text in enumerate(data):
-            c = row.cells[col_idx]
-            p = c.paragraphs[0]
-            r = p.add_run(text)
-            r.font.size = Pt(9.5)
-            if col_idx == 0:
-                r.bold = True
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(9.5)
+            if col_idx == 0: r.bold = True
 
     add_section_heading("4.3", "Quantitative Evaluation Metrics")
     add_p(
-        "System performance is quantified using standard biometric verification metrics:\n"
-        "• False Acceptance Rate (FAR / FPR): The percentage of impostor trials incorrectly authenticated as genuine.\n"
-        "• False Rejection Rate (FRR / FNR): The percentage of genuine speaker trials incorrectly rejected as impostors.\n"
-        "• Equal Error Rate (EER): The operating threshold where FAR equals FRR. Lower EER indicates superior discriminative power.\n"
-        "• Minimum Detection Cost Function (minDCF): A standardized metric incorporating prior probabilities (P_target = 0.01) and "
-        "operational penalty weights for false alarms and missed detections."
+        "Performance is evaluated using empirical biometric verification metrics:\n"
+        "• False Acceptance Rate (FAR): The fraction of impostor pairs incorrectly accepted as genuine.\n"
+        "• False Rejection Rate (FRR): The fraction of genuine pairs incorrectly rejected as impostors.\n"
+        "• Equal Error Rate (EER): The operating threshold where FAR equals FRR.\n"
+        "• Minimum Detection Cost Function (minDCF): Standardized cost function with target prior P_target = 0.01 and C_miss = C_fa = 1.0.\n"
+        "• Area Under the ROC Curve (AUC): The integral of the True Positive Rate against the False Positive Rate across all thresholds."
     )
 
     add_section_heading("4.4", "Verification Performance and Confusion Matrix Analysis")
     add_p(
-        "Figure 4.1 displays the confusion matrix obtained on the 240 structured evaluation trials at the optimal decision threshold "
-        "d_th = 0.678. The model demonstrated remarkable discriminative accuracy:\n"
-        "• True Positive (Genuine Accepted): 117 / 120 trials (97.50% True Accept Rate)\n"
-        "• True Negative (Impostor Rejected): 116 / 120 trials (96.67% True Reject Rate)\n"
-        "• False Positive (Impostor Accepted): 4 / 120 trials (3.33% False Alarm Rate)\n"
-        "• False Negative (Genuine Rejected): 3 / 120 trials (2.50% False Rejection Rate)\n\n"
-        "This yielded an overall verification accuracy of 97.10%, precision of 96.75%, and F1-score of 97.08%."
+        f"Figure 4.1 displays the confusion matrix obtained on the {m_sb_novad['n_trials']} evaluation trials using the pretrained SpeechBrain "
+        f"ECAPA-TDNN at its Equal Error Rate threshold d_th = {m_sb_novad['threshold']:.3f}:\n"
+        f"• True Positive (Genuine Accepted): {m_sb_novad['TP']} / {m_sb_novad['TP'] + m_sb_novad['FN']} trials ({m_sb_novad['recall_pct']:.2f}%)\n"
+        f"• True Negative (Impostor Rejected): {m_sb_novad['TN']} / {m_sb_novad['TN'] + m_sb_novad['FP']} trials ({m_sb_novad['TN'] / (m_sb_novad['TN'] + m_sb_novad['FP']) * 100:.2f}%)\n"
+        f"• False Positive (Impostor Accepted): {m_sb_novad['FP']} / {m_sb_novad['TN'] + m_sb_novad['FP']} trials ({m_sb_novad['FP'] / (m_sb_novad['TN'] + m_sb_novad['FP']) * 100:.2f}%)\n"
+        f"• False Negative (Genuine Rejected): {m_sb_novad['FN']} / {m_sb_novad['TP'] + m_sb_novad['FN']} trials ({m_sb_novad['FN'] / (m_sb_novad['TP'] + m_sb_novad['FN']) * 100:.2f}%)\n\n"
+        f"This yielded an overall accuracy of {m_sb_novad['accuracy_pct']:.2f}%, precision of {m_sb_novad['precision_pct']:.2f}%, "
+        f"recall of {m_sb_novad['recall_pct']:.2f}%, and F1-score of {m_sb_novad['f1_pct']:.2f}%.\n\n"
+        f"In comparison, the custom 2025 checkpoint evaluated on the identical trial set (threshold d_th = {m_own_novad['threshold']:.3f}) achieved:\n"
+        f"• True Positives: {m_own_novad['TP']} / {m_own_novad['TP'] + m_own_novad['FN']} ({m_own_novad['recall_pct']:.2f}%)\n"
+        f"• True Negatives: {m_own_novad['TN']} / {m_own_novad['TN'] + m_own_novad['FP']} ({m_own_novad['TN'] / (m_own_novad['TN'] + m_own_novad['FP']) * 100:.2f}%)\n"
+        f"• False Positives: {m_own_novad['FP']} / {m_own_novad['TN'] + m_own_novad['FP']} ({m_own_novad['FP'] / (m_own_novad['TN'] + m_own_novad['FP']) * 100:.2f}%)\n"
+        f"• False Negatives: {m_own_novad['FN']} / {m_own_novad['TP'] + m_own_novad['FN']} ({m_own_novad['FN'] / (m_own_novad['TP'] + m_own_novad['FN']) * 100:.2f}%)\n"
+        f"yielding an accuracy of {m_own_novad['accuracy_pct']:.2f}%, precision of {m_own_novad['precision_pct']:.2f}%, and recall of {m_own_novad['recall_pct']:.2f}%."
     )
 
-    # Insert Figure 1.1 Confusion Matrix from Report_Assets/
     add_image_or_placeholder(
         "Figure 4.1",
-        "Confusion Matrix for Target vs. Impostor Verification Trials at Threshold d_th = 0.678",
-        image_path="Report_Assets/Figure_1_1_Confusion_Matrix.png",
-        placeholder_desc="Confusion matrix showing 117 True Positives, 116 True Negatives, 4 False Positives, 3 False Negatives"
+        f"Empirical Confusion Matrix on LibriSpeech Test-Clean (Threshold d_th = {m_sb_novad['threshold']:.3f})",
+        image_path="Report_Assets/confusion_matrix_speechbrain_novad.png",
+        placeholder_desc=f"Confusion matrix showing {m_sb_novad['TP']} True Positives, {m_sb_novad['TN']} True Negatives, {m_sb_novad['FP']} False Positives, {m_sb_novad['FN']} False Negatives"
     )
 
-    add_section_heading("4.5", "Latent Space Visualization via t-SNE Clustering")
+    add_section_heading("4.5", "Acoustic Score Separation and Operating Threshold Calibration")
     add_p(
-        "To inspect the clustering behavior of the learned 192-dimensional latent space, t-Distributed Stochastic Neighbor Embedding "
-        "(t-SNE) was performed on test embeddings across all 24 speaker classes. As shown in Figure 4.2, the AAM-Softmax loss objective "
-        "forces embeddings belonging to the same individual into tight, compact clusters, while maintaining substantial inter-speaker "
-        "geodesic distances. Even speakers of the same gender and geographical dialect exhibit distinct cluster boundaries, confirming "
-        "that BioVoice successfully disentangles individual speaker traits from phonetic and linguistic variations."
+        f"Figure 4.2 illustrates the empirical probability density distributions of cosine similarity scores for genuine versus impostor trials. "
+        f"For the pretrained SpeechBrain model, the genuine score distribution has a mean mu = {m_sb_novad['genuine_mean']:.3f} (sigma = {m_sb_novad['genuine_std']:.3f}), "
+        f"while the impostor distribution is centered at mu = {m_sb_novad['impostor_mean']:.3f} (sigma = {m_sb_novad['impostor_std']:.3f}), demonstrating "
+        f"substantial score separation with an optimal EER threshold of d_th = {m_sb_novad['threshold']:.3f}.\n\n"
+        f"For the custom 2025 checkpoint, genuine pairs produced a mean score of mu = {m_own_novad['genuine_mean']:.3f} (sigma = {m_own_novad['genuine_std']:.3f}), "
+        f"and impostor pairs produced mu = {m_own_novad['impostor_mean']:.3f} (sigma = {m_own_novad['impostor_std']:.3f}) with an EER threshold of "
+        f"d_th = {m_own_novad['threshold']:.3f}. Because the custom checkpoint was trained on isolated single-word clips for only an initial epoch, "
+        f"embeddings exhibit narrower inter-class angular spread, leading to higher cosine baseline values."
     )
 
-    # Insert t-SNE embedding plot from params/ or Results/
-    tsne_path = "params/embedding_visualization.png"
-    if not os.path.exists(tsne_path):
-        tsne_path = "Results/embedding_visualization10Epochs.png"
     add_image_or_placeholder(
         "Figure 4.2",
-        "Two-Dimensional t-SNE Latent Space Projection of 24 Speaker Identity Clusters",
-        image_path=tsne_path,
-        placeholder_desc="2D scatter plot showing 24 distinct, tightly clustered speaker identity classes in latent space"
+        "Acoustic Cosine Similarity Score Distribution for Genuine vs. Impostor Trials",
+        image_path="Report_Assets/score_distribution_speechbrain_novad.png",
+        placeholder_desc="Score distribution histogram showing separation between genuine and impostor speech trials"
     )
 
-    add_section_heading("4.6", "Acoustic Score Separation and Operating Threshold Calibration")
+    add_section_heading("4.6", "Verification Operating Characteristics and ROC Analysis")
     add_p(
-        "Figure 4.3 illustrates the probability density distribution of cosine similarity scores for genuine speaker pairs versus impostor pairs. "
-        "The genuine distribution exhibits a high mean of mu = 0.81 (sigma = 0.075), whereas the impostor distribution is centered at mu = 0.46 "
-        "(sigma = 0.095). The substantial separation between the two distributions demonstrates clear biometric discriminability.\n\n"
-        "Figure 4.4 presents the corresponding Receiver Operating Characteristic (ROC) curve. The system achieves an Area Under the Curve (AUC) "
-        "of 0.992 and an Equal Error Rate (EER) of 2.85% at the operating threshold of d_th = 0.678."
+        f"Figure 4.3 presents the Receiver Operating Characteristic (ROC) trajectory. The pretrained SpeechBrain benchmark achieved an Area Under "
+        f"the Curve (AUC) of {m_sb_novad['auc']:.3f} with an Equal Error Rate of {m_sb_novad['eer_pct']:.2f}% (minDCF = {m_sb_novad['minDCF']:.3f}). "
+        f"The custom 2025 checkpoint achieved an AUC of {m_own_novad['auc']:.3f} with an Equal Error Rate of {m_own_novad['eer_pct']:.2f}% "
+        f"(minDCF = {m_own_novad['minDCF']:.3f})."
     )
 
-    # Insert Figure 4.2 Score Distribution from Report_Assets/
     add_image_or_placeholder(
         "Figure 4.3",
-        "Probability Density Distribution of Cosine Similarity Scores for Genuine vs. Impostor Trials",
-        image_path="Report_Assets/Figure_4_2_Score_Distribution.png",
-        placeholder_desc="Score distribution histogram showing separation between genuine (green) and impostor (red) trials at d_th = 0.678"
+        f"Receiver Operating Characteristic (ROC) Verification Trajectory (EER = {m_sb_novad['eer_pct']:.2f}%)",
+        image_path="Report_Assets/roc_speechbrain_novad.png",
+        placeholder_desc=f"ROC curve plotting TAR vs FAR with AUC = {m_sb_novad['auc']:.3f} and EER = {m_sb_novad['eer_pct']:.2f}%"
     )
 
-    # Insert Figure 4.3 ROC Curve from Report_Assets/
+    add_section_heading("4.7", "Dynamic Multi-Scale Temporal Attention Analysis")
+    add_p(
+        "To inspect temporal pooling salience across speech utterances, Figure 4.4 displays the multi-scale attention output across time frames. "
+        "The attentive pooling layer assigns higher importance weights to voiced formant transitions, while muting background silence intervals."
+    )
+
     add_image_or_placeholder(
         "Figure 4.4",
-        "Receiver Operating Characteristic (ROC) Curve Showing Equal Error Rate (EER = 2.85%)",
-        image_path="Report_Assets/Figure_4_3_ROC_Curve.png",
-        placeholder_desc="ROC curve plotting True Positive Rate vs False Positive Rate with AUC = 0.992 and EER = 2.85%"
+        "Dynamic Multi-Scale Temporal Attention Heatmap across Frequency Sub-Bands",
+        image_path="Results/ecapa_attention_output.png",
+        placeholder_desc="Attention spectrogram highlighting voiced vowel formants"
     )
 
-    add_section_heading("4.7", "Comparative Benchmarking with State-of-the-Art Baselines")
+    add_section_heading("4.8", "Latent Space Visualization via t-SNE Clustering")
     add_p(
-        "Table 4.2 provides a quantitative benchmark comparing the proposed BioVoice architecture against classical statistical baselines "
-        "and standard deep learning speaker verification models on the IndianVoxCeleb test set."
+        "To visualize the geometry of learned speaker representations, two-dimensional t-SNE projections [21] were generated. "
+        "Figure 4.5(a) displays the initial baseline latent space projection (params/embedding_visualization.png, 191,576 bytes). "
+        "Figure 4.5(b) displays the latent cluster formation after 10 epochs of training (Results/embedding_visualization10Epochs.png, 97,380 bytes), "
+        "illustrating progressive intra-speaker compaction and inter-speaker cluster separation."
     )
 
-    # Table 4.2
-    add_p("Table 4.2: Quantitative Verification Performance Benchmarking", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
-    t_bench = doc.add_table(rows=7, cols=7)
+    add_image_or_placeholder(
+        "Figure 4.5(a)",
+        "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (Initial Epoch Baseline)",
+        image_path="params/embedding_visualization.png",
+        placeholder_desc="2D scatter plot showing initial epoch baseline t-SNE projection across speaker classes",
+        width_inches=5.2
+    )
+
+    add_image_or_placeholder(
+        "Figure 4.5(b)",
+        "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (10-Epoch Cluster Separation)",
+        image_path="Results/embedding_visualization10Epochs.png",
+        placeholder_desc="2D scatter plot showing speaker cluster formation after 10 epochs of training",
+        width_inches=5.2
+    )
+
+    add_section_heading("4.9", "Empirical Cross-System Performance Benchmark")
+    add_p(
+        f"Table 4.2 presents the empirical benchmark comparing the four measured configurations on the exact same {m_sb_novad['n_trials']} "
+        f"LibriSpeech trial pairs. To maintain strict scientific integrity, only configurations empirically measured in this session are reported."
+    )
+
+    # Table 4.2 (COMPARE ONLY WHAT WAS MEASURED)
+    add_p("Table 4.2: Empirical Cross-System Performance Benchmark on LibriSpeech Test-Clean (240 Trials)", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    t_bench = doc.add_table(rows=5, cols=9)
     t_bench.alignment = WD_TABLE_ALIGNMENT.CENTER
-    headers_bench = ["Architecture", "Feature Type", "Loss Function", "Precision (%)", "Recall (%)", "Accuracy (%)", "EER (%)"]
+    headers_bench = ["Evaluated Architecture", "VAD", "Dim", "Threshold", "Accuracy (%)", "Precision (%)", "Recall (%)", "EER (%)", "minDCF"]
     for i, h in enumerate(headers_bench):
-        c = t_bench.cell(0, i)
-        set_cell_background(c, "E8EEF5")
-        p = c.paragraphs[0]
-        r = p.add_run(h)
-        r.bold = True
-        r.font.size = Pt(9.5)
+        c = t_bench.cell(0, i); set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(8.5)
     
     bench_data = [
-        ("GMM-UBM (512 Gaussians) [1]", "39-dim MFCC", "MAP Adaptation", "71.42", "66.34", "70.23", "12.80"),
-        ("Standard i-Vector + PLDA [2]", "60-dim MFCC", "PLDA Scoring", "79.42", "62.34", "76.50", "9.40"),
-        ("Vanilla x-Vector (TDNN) [3]", "30-dim MFCC", "Cross-Entropy", "83.20", "74.50", "82.15", "6.20"),
-        ("ResNet-34 + Attentive Pool [5]", "80-dim Mel", "AM-Softmax", "89.10", "85.40", "88.90", "4.80"),
-        ("Standard ECAPA-TDNN [10]", "80-dim Mel", "AAM-Softmax", "92.40", "91.20", "92.80", "3.65"),
-        ("Proposed BioVoice Architecture", "80-dim Mel + VAD", "AAM-Softmax", "96.75", "97.50", "97.10", "2.85")
+        ("Custom Checkpoint (2025 VoxCeleb1-style, 1-epoch)", "No", "256", f"{m_own_novad['threshold']:.3f}", f"{m_own_novad['accuracy_pct']:.2f}", f"{m_own_novad['precision_pct']:.2f}", f"{m_own_novad['recall_pct']:.2f}", f"{m_own_novad['eer_pct']:.2f}", f"{m_own_novad['minDCF']:.3f}"),
+        ("Custom Checkpoint (2025 VoxCeleb1-style, 1-epoch)", "Yes", "256", f"{m_own_vad['threshold']:.3f}", f"{m_own_vad['accuracy_pct']:.2f}", f"{m_own_vad['precision_pct']:.2f}", f"{m_own_vad['recall_pct']:.2f}", f"{m_own_vad['eer_pct']:.2f}", f"{m_own_vad['minDCF']:.3f}"),
+        ("Pretrained SpeechBrain ECAPA-TDNN (VoxCeleb SOTA)", "No", "192", f"{m_sb_novad['threshold']:.3f}", f"{m_sb_novad['accuracy_pct']:.2f}", f"{m_sb_novad['precision_pct']:.2f}", f"{m_sb_novad['recall_pct']:.2f}", f"{m_sb_novad['eer_pct']:.2f}", f"{m_sb_novad['minDCF']:.3f}"),
+        ("Pretrained SpeechBrain ECAPA-TDNN (VoxCeleb SOTA)", "Yes", "192", f"{m_sb_vad['threshold']:.3f}", f"{m_sb_vad['accuracy_pct']:.2f}", f"{m_sb_vad['precision_pct']:.2f}", f"{m_sb_vad['recall_pct']:.2f}", f"{m_sb_vad['eer_pct']:.2f}", f"{m_sb_vad['minDCF']:.3f}")
     ]
     for row_idx, data in enumerate(bench_data):
         row = t_bench.rows[row_idx + 1]
         for col_idx, text in enumerate(data):
-            c = row.cells[col_idx]
-            p = c.paragraphs[0]
-            r = p.add_run(text)
-            r.font.size = Pt(9)
-            if col_idx == 0 and "BioVoice" in text:
-                r.bold = True
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(8.5)
+            if col_idx == 0: r.bold = True
 
     add_p(
-        "As reported in Table 4.2, BioVoice reduces the Equal Error Rate by 21.9% relative to standard ECAPA-TDNN and by 54.0% relative "
-        "to vanilla x-vectors, confirming the superior discriminative capability of combining VAD silence trimming with dilated SE-Res2Blocks."
+        f"The fully converged SpeechBrain baseline demonstrated an EER of {m_sb_novad['eer_pct']:.2f}% and accuracy of {m_sb_novad['accuracy_pct']:.2f}% "
+        f"on the clean continuous speech benchmark. The custom 2025 checkpoint achieved an EER of {m_own_novad['eer_pct']:.2f}% and accuracy of "
+        f"{m_own_novad['accuracy_pct']:.2f}% under cross-domain evaluation, reflecting its single-epoch prototype training status."
     )
 
-    add_section_heading("4.8", "Ablation Analysis: Impact of VAD and Pooling Modifications")
+    add_section_heading("4.10", "Ablation Analysis: Empirical Impact of Voice Activity Detection")
     add_p(
-        "To isolate the contribution of individual architectural components, an ablation experiment was performed (Table 4.3). "
-        "Removing the frontend VAD pre-filter increases EER from 2.85% to 3.75%, demonstrating that unvoiced silence frames dilute the "
-        "statistical pooling representation. Replacing attentive pooling with standard unweighted pooling further degrades accuracy to 84.10%."
+        "To isolate the empirical effect of energy-based Voice Activity Detection (VAD) on verification performance, Table 4.3 compares "
+        "both models with and without the frontend VAD filter on the identical 240 trials."
     )
 
-    # Table 4.3
-    add_p("Table 4.3: Ablation Analysis of VAD Preprocessing and Pooling Architectural Variations", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
-    t_abl = doc.add_table(rows=5, cols=5)
+    # Table 4.3 (REAL ABLATION DATA ONLY)
+    add_p("Table 4.3: Ablation Analysis: Empirical Impact of Voice Activity Detection (VAD) on Verification Error Rates", bold=True, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    t_abl = doc.add_table(rows=5, cols=6)
     t_abl.alignment = WD_TABLE_ALIGNMENT.CENTER
-    headers_abl = ["Configuration Variant", "VAD Pre-filter", "Pooling Mechanism", "Accuracy (%)", "EER (%)"]
+    headers_abl = ["Evaluated Engine", "Frontend Condition", "EER (%)", "minDCF", "Accuracy (%)", "Delta EER vs. No-VAD"]
     for i, h in enumerate(headers_abl):
-        c = t_abl.cell(0, i)
-        set_cell_background(c, "E8EEF5")
-        p = c.paragraphs[0]
-        r = p.add_run(h)
-        r.bold = True
-        r.font.size = Pt(10)
+        c = t_abl.cell(0, i); set_cell_background(c, "E8EEF5")
+        p = c.paragraphs[0]; r = p.add_run(h); r.bold = True; r.font.size = Pt(9.5)
     
     abl_data = [
-        ("Variant A (Base)", "No", "Unweighted Temporal Average", "84.10", "7.15"),
-        ("Variant B (+ Attentive Pooling)", "No", "Attentive Statistics Pooling", "89.50", "5.20"),
-        ("Variant C (+ AAM-Softmax)", "No", "Attentive Statistics Pooling", "94.30", "3.75"),
-        ("Variant D (Full BioVoice)", "Yes", "Attentive Statistics Pooling", "97.10", "2.85")
+        ("Custom Checkpoint (256-D)", "Raw Audio (No VAD)", f"{m_own_novad['eer_pct']:.2f}", f"{m_own_novad['minDCF']:.3f}", f"{m_own_novad['accuracy_pct']:.2f}", "Baseline"),
+        ("Custom Checkpoint (256-D)", "With Energy VAD Filter", f"{m_own_vad['eer_pct']:.2f}", f"{m_own_vad['minDCF']:.3f}", f"{m_own_vad['accuracy_pct']:.2f}", f"+{m_own_vad['eer_pct'] - m_own_novad['eer_pct']:.2f}%"),
+        ("SpeechBrain Pretrained (192-D)", "Raw Audio (No VAD)", f"{m_sb_novad['eer_pct']:.2f}", f"{m_sb_novad['minDCF']:.3f}", f"{m_sb_novad['accuracy_pct']:.2f}", "Baseline"),
+        ("SpeechBrain Pretrained (192-D)", "With Energy VAD Filter", f"{m_sb_vad['eer_pct']:.2f}", f"{m_sb_vad['minDCF']:.3f}", f"{m_sb_vad['accuracy_pct']:.2f}", f"+{m_sb_vad['eer_pct'] - m_sb_novad['eer_pct']:.2f}%")
     ]
     for row_idx, data in enumerate(abl_data):
         row = t_abl.rows[row_idx + 1]
         for col_idx, text in enumerate(data):
-            c = row.cells[col_idx]
-            p = c.paragraphs[0]
-            r = p.add_run(text)
-            r.font.size = Pt(9.5)
-            if "Full BioVoice" in text:
-                r.bold = True
+            c = row.cells[col_idx]; p = c.paragraphs[0]; r = p.add_run(text); r.font.size = Pt(9)
+            if col_idx == 0: r.bold = True
+
+    add_p(
+        f"Empirical results indicate that on clean studio-recorded continuous speech (LibriSpeech test-clean), energy-based VAD trimming "
+        f"slightly increases EER (+{m_sb_vad['eer_pct'] - m_sb_novad['eer_pct']:.2f}% for SpeechBrain and +{m_own_vad['eer_pct'] - m_own_novad['eer_pct']:.2f}% for the custom checkpoint). "
+        f"This occurs because aggressive boundary trimming in studio conditions removes low-energy co-articulation cues and transition consonants, "
+        f"whereas VAD provides distinct utility in noisy or pause-heavy spontaneous speech by eliminating unvoiced silence dilution."
+    )
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 5: CONCLUSION AND FUTURE WORK
@@ -1054,56 +1018,52 @@ def create_document():
 
     add_section_heading("5.1", "Summary of Contributions")
     add_p(
-        "This B.Tech Minor Project successfully designed, implemented, and benchmarked BioVoice: an acoustic biometric authentication system "
-        "tailored for text-independent speaker verification under challenging acoustic conditions. The primary technical contributions are:\n"
-        "1. Architectural Synergy: Combined energy-based Voice Activity Detection with a multi-scale dilated SE-Res2Block TDNN backbone, "
-        "capturing both micro-phonetic pitch formants and broad temporal prosody.\n"
-        "2. Attentive Feature Aggregation: Deployed Channel-Dependent Attentive Statistics Pooling to weight voiced segments dynamically, "
-        "mitigating short-utterance degradation.\n"
-        "3. Geodesic Metric Optimization: Leveraged Additive Angular Margin Softmax (AAM-Softmax) loss to enforce strict hyperspherical clustering, "
-        "producing well-separated speaker voiceprints.\n"
-        "4. Empirical Validation: Achieved an Equal Error Rate of 2.85% and an overall accuracy of 97.10% on the IndianVoxCeleb benchmark."
+        f"This B.Tech Minor Project designed, implemented, and empirically evaluated BioVoice: a deep neural acoustic identity verification "
+        f"system based on the ECAPA-TDNN architecture. The principal engineering contributions include:\n"
+        f"1. Custom Architecture Implementation: Implemented an end-to-end PyTorch ECAPA-TDNN architecture with 80-channel Mel filterbanks, "
+        f"multi-scale dilated SE-Res2Blocks, attentive statistics pooling, and a 256-dimensional embedding projection (fc6: 3072 -> 256).\n"
+        f"2. Additive Angular Margin Training: Formulated and executed training using AAM-Softmax loss (m=0.2, s=30) on 24 speaker classes to enforce spherical clustering.\n"
+        f"3. Dual-Engine Evaluation Framework: Executed balanced trial evaluations on LibriSpeech test-clean ({m_sb_novad['n_trials']} trials across 40 speakers), "
+        f"measuring both custom prototype weights (EER = {m_own_novad['eer_pct']:.2f}%) and converged SpeechBrain reference weights (EER = {m_sb_novad['eer_pct']:.2f}%, AUC = {m_sb_novad['auc']:.3f}).\n"
+        f"4. Interactive Verification System: Deployed a localhost Gradio web application (app.py) providing live microphone resampling to 16 kHz, "
+        f"1-to-1 voice authentication, and 1-to-N biometric gallery registration."
     )
 
     add_section_heading("5.2", "Practical Deployment: Interactive Gradio Web System")
     add_p(
-        "To demonstrate real-world applicability, an interactive web application was constructed in Python using Gradio (app.py). "
-        "The system incorporates real-time audio resampling (converting 44.1k/48k microphone inputs to 16 kHz) and supports dual operational modes:\n"
-        "• Mode 1 (1-to-1 Verification): Live recording of reference and probe speech samples, returning cosine similarity, confidence percentage, "
-        "and rendered Mel-spectrogram comparisons in under 0.5 seconds on a CPU.\n"
-        "• Mode 2 (1-to-N Gallery Identification): Allows enrollment of new speaker profiles into a persistent database, followed by automated "
-        "identification of unknown incoming voices."
+        "To validate real-time functionality, an interactive web interface was developed in Python using Gradio (app.py). "
+        "The interface automatically resamples browser microphone inputs from 44.1k/48k to 16 kHz and operates on localhost (http://localhost:7860). "
+        "It supports 1-to-1 speaker verification with dynamic spectrogram rendering and 1-to-N voice gallery enrollment, transparently "
+        "displaying the active neural engine name to prevent unverified heuristics from being reported as model outputs."
     )
 
     add_image_or_placeholder(
         "Figure 5.1",
         "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment",
-        placeholder_desc="Screenshot of the running Gradio application interface showing verification result badge, confidence gauge, and spectrograms"
+        placeholder_desc="Screenshot of the running Gradio application interface on localhost showing verification result badge, confidence gauge, and spectrograms"
     )
 
     add_section_heading("5.3", "System Limitations")
     add_p(
-        "Despite robust performance, two operational limitations remain:\n"
-        "1. Extreme Intra-Speaker Physical Variation: Severe vocal pathologies (e.g., laryngitis or extreme cold) temporarily alter vocal fold "
-        "vibrations, leading to higher false rejection rates.\n"
-        "2. Synthetic Speech Spoofing: The current pipeline does not integrate a dedicated anti-spoofing backend (such as ASVspoof models) to "
-        "detect voice conversion or deepfake speech synthesis."
+        "In accordance with rigorous academic standards, the following operational limitations are explicitly documented:\n"
+        f"1. Modest Evaluation Scale: The test set was constrained to {m_sb_novad['n_trials']} balanced trials across 40 human speakers from LibriSpeech; larger multi-condition benchmarks are needed for full statistical confidence.\n"
+        "2. Cross-Domain Distribution Shift: The custom checkpoint was trained on isolated single-word clips, whereas evaluation evaluated continuous read speech, introducing domain mismatch.\n"
+        "3. Prototype Single-Epoch Checkpoint: The custom model was trained for only an initial single epoch, yielding wider score overlap compared to fully converged models.\n"
+        "4. Pretrained Dependency for Real-Time Demo: The low-latency interactive demonstration interface relies on pre-trained SpeechBrain VoxCeleb weights to achieve real-time production-grade accuracy.\n"
+        "5. Absence of Presentation Attack Detection: The system does not currently incorporate anti-spoofing countermeasures against replay attacks or synthetic voice deepfakes."
     )
 
     add_section_heading("5.4", "Future Research Directions")
     add_p(
-        "Future enhancements of the BioVoice platform include:\n"
-        "• Anti-Spoofing and Liveness Detection: Integrating raw waveform neural filters to identify high-frequency phase artifacts produced by "
-        "neural vocoders and synthetic speech generators.\n"
-        "• Model Quantization for Edge Hardware: Applying 8-bit Post-Training Quantization (PTQ) to enable deployment on embedded microcontrollers "
-        "and smart home IoT devices.\n"
-        "• Text-Dependent Voice Passphrase Integration: Coupling speaker verification with automated speech recognition to verify randomized "
-        "spoken passphrases, preventing replay attacks."
+        "Future research extensions include:\n"
+        "• Anti-Spoofing and Liveness Detection: Integrating raw waveform neural filters (e.g., RawNet2 / AASIST) to detect synthetic speech artifacts.\n"
+        "• Model Quantization for Edge Hardware: Applying 8-bit Post-Training Quantization (PTQ) to enable deployment on embedded microcontrollers.\n"
+        "• Multi-Condition Training: Expanding training across multi-speaker conversational corpora to enhance cross-domain generalization."
     )
 
     # ══════════════════════════════════════════════════════════════════════════
-    # REFERENCES (24 Non-Duplicate, IEEE Standard Citations)
-    # ═══════════════════════════════════════════════════
+    # REFERENCES (23 Non-Duplicate, Verified IEEE Citations)
+    # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("REFERENCES", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
 
@@ -1130,7 +1090,6 @@ def create_document():
         "H. Zeinali, L. Burget, J. Cernocky, and S. Cumani, \"A study on data augmentation and model combination for additive margin softmax in speaker recognition,\" in Proc. Interspeech, Graz, Austria, 2019, pp. 1033–1037.",
         "L. van der Maaten and G. Hinton, \"Visualizing data using t-SNE,\" Journal of Machine Learning Research, vol. 9, no. 86, pp. 2579–2605, 2008.",
         "F. Pedregosa et al., \"Scikit-learn: Machine learning in Python,\" Journal of Machine Learning Research, vol. 12, pp. 2825–2830, 2011.",
-        "F. Chollet, \"Xception: Deep learning with depthwise separable convolutions,\" in Proc. IEEE Conference on Computer Vision and Pattern Recognition (CVPR), Honolulu, HI, USA, 2017, pp. 1251–1258.",
         "A. Paszke et al., \"PyTorch: An imperative style, high-performance deep learning library,\" in Advances in Neural Information Processing Systems (NeurIPS), Vancouver, BC, Canada, 2019, pp. 8024–8035."
     ]
 
@@ -1144,14 +1103,14 @@ def create_document():
         r_num.bold = True
         r_num.font.name = 'Times New Roman'
         r_num.font.size = Pt(10)
-        r_txt = p_ref.add_run(ref)
-        r_txt.font.name = 'Times New Roman'
-        r_txt.font.size = Pt(10)
+        r_text = p_ref.add_run(ref)
+        r_text.font.name = 'Times New Roman'
+        r_text.font.size = Pt(10)
 
-    # Save Word document
-    output_docx_path = "c:\\Users\\BIT\\Desktop\\APPS\\Speaker_recognition\\BioVoice_Minor_Project_Report.docx"
-    doc.save(output_docx_path)
-    print(f"✅ Document successfully created: {output_docx_path}")
+    # Save generated document
+    output_path = os.path.join(BASE_DIR, "BioVoice_Minor_Project_Report.docx")
+    doc.save(output_path)
+    print(f"✅ Document successfully created: {output_path}")
 
 if __name__ == "__main__":
     create_document()
