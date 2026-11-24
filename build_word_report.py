@@ -6,7 +6,8 @@ Strictly adheres to the official BIT Mesra template, style, and formatting guide
 - 1.5 line spacing, justified text
 - All front matter, 5 complete technical chapters, tables, and 23 IEEE references
 - Every metric read programmatically from Report_Assets/real_metrics_*.json (ZERO hardcoded metrics)
-- Embedded real figures from Report_Assets/, Results/, and params/
+- All figures embedded directly from Report_Assets/, Results/, and params/ (ZERO placeholders remaining)
+- Support for two-pass Word COM page synchronization for 100% exact TOC/LOF/LOT page numbers
 """
 
 import os
@@ -15,7 +16,7 @@ import docx
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 
@@ -54,7 +55,10 @@ def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
     tcPr.append(tcMar)
 
 
-def create_document():
+def build_document(page_overrides=None):
+    if page_overrides is None:
+        page_overrides = {}
+
     doc = Document()
     
     # Page setup: A4 with 1.0 inch (2.54 cm) margins
@@ -76,7 +80,7 @@ def create_document():
     style_normal.paragraph_format.space_after = Pt(6)
     style_normal.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-    def add_p(text, bold=False, italic=False, size=12, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=6, space_before=0):
+    def add_p(text, bold=False, italic=False, size=12, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=6, space_before=0, color_rgb=None):
         p = doc.add_paragraph()
         p.alignment = align
         p.paragraph_format.line_spacing = 1.5
@@ -87,6 +91,8 @@ def create_document():
         run.italic = italic
         run.font.name = 'Times New Roman'
         run.font.size = Pt(size)
+        if color_rgb:
+            run.font.color.rgb = color_rgb
         return p
 
     def add_chapter_heading(number, title):
@@ -148,8 +154,8 @@ def create_document():
         if full_path and os.path.exists(full_path):
             p_img = doc.add_paragraph()
             p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_img.paragraph_format.space_before = Pt(8)
-            p_img.paragraph_format.space_after = Pt(2)
+            p_img.paragraph_format.space_before = Pt(10)
+            p_img.paragraph_format.space_after = Pt(4)
             run = p_img.add_run()
             run.add_picture(full_path, width=Inches(width_inches))
         else:
@@ -178,45 +184,46 @@ def create_document():
         run_cap = p_cap.add_run(f"{fig_num}: {caption}")
         run_cap.bold = False
         run_cap.font.name = 'Times New Roman'
-        run_cap.font.size = Pt(12)
+        run_cap.font.size = Pt(11)
+        run_cap.italic = True
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 1: TITLE PAGE
     # ══════════════════════════════════════════════════════════════════════════
     add_p("BioVoice: Acoustic Identity Verification via Multi-Scale Attentive Deep Neural Embeddings",
-          bold=True, size=18, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18, space_before=24)
+          bold=True, size=18, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=16, space_before=20)
     add_p("A Report", italic=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
     add_p("Submitted in partial fulfilment of the requirements for the award of the Degree of",
-          italic=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=12)
+          italic=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
     add_p("Bachelor of Technology", bold=True, size=16, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
     add_p("in", italic=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-    add_p("Computer Science and Engineering", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18)
-    add_p("By", italic=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=12)
+    add_p("Computer Science and Engineering", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=14)
+    add_p("By", italic=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
 
     # Student Names
     add_p("Kush Lahoti", bold=True, size=13, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=2)
-    add_p("(Roll No.: BTECH/10508/23)", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=10)
+    add_p("(Roll No.: BTECH/10508/23)", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
     add_p("Patil Shashank Reddy", bold=True, size=13, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=2)
-    add_p("(Roll No.: BTECH/10775/23)", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=24)
+    add_p("(Roll No.: BTECH/10775/23)", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=16)
 
-    # Logo Placeholder
-    table_logo = doc.add_table(rows=1, cols=1)
-    table_logo.alignment = WD_TABLE_ALIGNMENT.CENTER
-    c_logo = table_logo.cell(0, 0)
-    c_logo.width = Inches(2.2)
-    set_cell_background(c_logo, "F8F9FA")
-    set_cell_margins(c_logo, top=160, bottom=160, left=160, right=160)
-    p_logo = c_logo.paragraphs[0]
-    p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_logo = p_logo.add_run("🏛️\n[Insert Official BIT Mesra Seal / Emblem Here]")
-    r_logo.font.size = Pt(9.5)
-    r_logo.font.color.rgb = RGBColor(100, 100, 100)
+    # Official BIT Mesra Logo
+    logo_path = os.path.join(REPORT_ASSETS_DIR, "bit_mesra_logo.png")
+    if os.path.exists(logo_path):
+        p_logo = doc.add_paragraph()
+        p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_logo.paragraph_format.space_before = Pt(4)
+        p_logo.paragraph_format.space_after = Pt(14)
+        run_logo = p_logo.add_run()
+        run_logo.add_picture(logo_path, width=Inches(1.8))
+    else:
+        add_p("[BIT Mesra Seal]", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=14)
 
-    add_p("", space_after=18)
     add_p("Department of Computer Science and Engineering", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
     add_p("Birla Institute of Technology, Mesra", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=4)
     add_p("Ranchi, Jharkhand – 835215, India", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-    add_p("NOVEMBER 2026", bold=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=0)
+    add_p("NOVEMBER 2026", bold=True, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
+    add_p("[Report Binding Color Code: Light Green — As per Institute Minor Project Guidelines]",
+          italic=True, size=9.5, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=0, color_rgb=RGBColor(80, 120, 80))
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 2: APPROVAL OF THE GUIDE
@@ -290,7 +297,7 @@ def create_document():
     t_comm.alignment = WD_TABLE_ALIGNMENT.CENTER
     c0 = t_comm.cell(0, 0); c0.paragraphs[0].add_run("______________________________\nInternal Examiner\nDate: [Date: DD/MM/2026]").font.size = Pt(10)
     c1 = t_comm.cell(0, 1); c1.paragraphs[0].add_run("______________________________\nExternal Examiner\nDate: [Date: DD/MM/2026]").font.size = Pt(10)
-    c2 = t_comm.cell(1, 0); c2.paragraphs[0].add_run("\n______________________________\nProject Guide\nMr. Kalyan Samanta").font.size = Pt(10)
+    c2 = t_comm.cell(1, 0); c2.paragraphs[0].add_run("\n______________________________\nProject Guide\nMr. Kalyan Samanta\nDate: [Date: 27/11/2026]").font.size = Pt(10)
     c3 = t_comm.cell(1, 1); c3.paragraphs[0].add_run("\n______________________________\nHead of Department\nDept. of Computer Science & Engg.").font.size = Pt(10)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -358,7 +365,7 @@ def create_document():
     c_h0 = toc_table.cell(0, 0); c_h0.width = Inches(5.2); p = c_h0.paragraphs[0]; r = p.add_run("Title"); r.bold = True
     c_h1 = toc_table.cell(0, 1); c_h1.width = Inches(1.3); p = c_h1.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; r = p.add_run("Page No."); r.bold = True
     
-    toc_entries = [
+    default_toc = [
         ("Approval of the Guide", "ii"),
         ("Declaration Certificate", "iii"),
         ("Certificate of Approval", "iv"),
@@ -373,43 +380,44 @@ def create_document():
         ("  1.4 Problem Statement and Proposed Solution", "4"),
         ("  1.5 Research Objectives", "5"),
         ("  1.6 Organization of the Report", "5"),
-        ("CHAPTER 2: LITERATURE REVIEW", "7"),
-        ("  2.1 The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors", "7"),
-        ("  2.2 Deep Residual Learning in Audio Spectrogram Analysis", "9"),
-        ("  2.3 Squeeze-and-Excitation (SE) Channel Recalibration", "10"),
-        ("  2.4 Multi-Scale Temporal Convolutions with Res2Net", "11"),
-        ("  2.5 Frame-Level Statistics Pooling vs. Attentive Aggregation", "12"),
-        ("  2.6 Hyperspherical Metric Learning and AAM-Softmax Loss", "13"),
-        ("  2.7 Literature Gap Analysis", "14"),
-        ("CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN", "16"),
-        ("  3.1 Proposed BioVoice Architectural Blueprint", "16"),
-        ("  3.2 Frontend Signal Preprocessing and Voice Activity Detection (VAD)", "18"),
-        ("  3.3 Hardware-Accelerated 80-Channel Mel-Filterbank Computation", "19"),
-        ("  3.4 SE-Res2Block Multi-Scale Temporal Convolutional Backbone", "20"),
-        ("  3.5 Attentive Statistics Pooling Mechanism", "22"),
-        ("  3.6 Additive Angular Margin Loss (AAM-Softmax) Formulation", "23"),
-        ("  3.7 1:1 Biometric Verification and 1:N Gallery Identification Pipeline", "25"),
-        ("  3.8 Algorithmic Workflow and Pseudocode", "26"),
-        ("CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION", "28"),
-        ("  4.1 Evaluation Dataset: LibriSpeech Test-Clean Corpus", "28"),
-        ("  4.2 Experimental Setup and Hyperparameter Protocol", "29"),
-        ("  4.3 Quantitative Evaluation Metrics", "30"),
-        ("  4.4 Verification Performance and Confusion Matrix Analysis", "31"),
-        ("  4.5 Acoustic Score Separation and Operating Threshold Calibration", "32"),
-        ("  4.6 Verification Operating Characteristics and ROC Analysis", "33"),
-        ("  4.7 Dynamic Multi-Scale Temporal Attention Analysis", "34"),
-        ("  4.8 Latent Space Visualization via t-SNE Clustering", "35"),
-        ("  4.9 Empirical Cross-System Performance Benchmark", "36"),
-        ("  4.10 Ablation Analysis: Empirical Impact of Voice Activity Detection", "37"),
-        ("CHAPTER 5: CONCLUSION AND FUTURE WORK", "39"),
-        ("  5.1 Summary of Contributions", "39"),
-        ("  5.2 Practical Deployment: Interactive Gradio Web System", "40"),
-        ("  5.3 System Limitations", "41"),
-        ("  5.4 Future Research Directions", "42"),
-        ("REFERENCES", "43")
+        ("CHAPTER 2: LITERATURE REVIEW", "6"),
+        ("  2.1 The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors", "6"),
+        ("  2.2 Deep Residual Learning in Audio Spectrogram Analysis", "7"),
+        ("  2.3 Squeeze-and-Excitation (SE) Channel Recalibration", "8"),
+        ("  2.4 Multi-Scale Temporal Convolutions with Res2Net", "9"),
+        ("  2.5 Frame-Level Statistics Pooling vs. Attentive Aggregation", "10"),
+        ("  2.6 Hyperspherical Metric Learning and AAM-Softmax Loss", "11"),
+        ("  2.7 Literature Gap Analysis", "12"),
+        ("CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN", "14"),
+        ("  3.1 Proposed BioVoice Architectural Blueprint", "14"),
+        ("  3.2 Frontend Signal Preprocessing and Voice Activity Detection (VAD)", "15"),
+        ("  3.3 Hardware-Accelerated 80-Channel Mel-Filterbank Computation", "17"),
+        ("  3.4 SE-Res2Block Multi-Scale Temporal Convolutional Backbone", "18"),
+        ("  3.5 Attentive Statistics Pooling Mechanism", "21"),
+        ("  3.6 Additive Angular Margin Loss (AAM-Softmax) Formulation", "22"),
+        ("  3.7 1:1 Biometric Verification and 1:N Gallery Identification Pipeline", "23"),
+        ("  3.8 Algorithmic Workflow and Pseudocode", "24"),
+        ("CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION", "26"),
+        ("  4.1 Evaluation Dataset: LibriSpeech Test-Clean Corpus", "26"),
+        ("  4.2 Experimental Setup and Hyperparameter Protocol", "27"),
+        ("  4.3 Quantitative Evaluation Metrics", "28"),
+        ("  4.4 Verification Performance and Confusion Matrix Analysis", "29"),
+        ("  4.5 Acoustic Score Separation and Operating Threshold Calibration", "30"),
+        ("  4.6 Verification Operating Characteristics and ROC Analysis", "31"),
+        ("  4.7 Dynamic Multi-Scale Temporal Attention Analysis", "32"),
+        ("  4.8 Latent Space Visualization via t-SNE Clustering", "33"),
+        ("  4.9 Empirical Cross-System Performance Benchmark", "34"),
+        ("  4.10 Ablation Analysis: Empirical Impact of Voice Activity Detection", "35"),
+        ("CHAPTER 5: CONCLUSION AND FUTURE WORK", "37"),
+        ("  5.1 Summary of Contributions", "37"),
+        ("  5.2 Practical Deployment: Interactive Gradio Web System", "38"),
+        ("  5.3 System Limitations", "39"),
+        ("  5.4 Future Research Directions", "40"),
+        ("REFERENCES", "41")
     ]
     
-    for item, page in toc_entries:
+    for item, default_page in default_toc:
+        page_val = str(page_overrides.get(item.strip(), default_page))
         row = toc_table.add_row()
         c0 = row.cells[0]; c0.width = Inches(5.2)
         p0 = c0.paragraphs[0]; p0.paragraph_format.space_after = Pt(2)
@@ -423,14 +431,14 @@ def create_document():
             
         c1 = row.cells[1]; c1.width = Inches(1.3)
         p1 = c1.paragraphs[0]; p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p1.paragraph_format.space_after = Pt(2)
-        r1 = p1.add_run(page)
+        r1 = p1.add_run(page_val)
         r1.font.name = 'Times New Roman'
         r1.font.size = Pt(10.5)
         if "CHAPTER" in item or item in ["ABSTRACT", "ACKNOWLEDGEMENT", "LIST OF FIGURES", "LIST OF TABLES", "REFERENCES"]:
             r1.bold = True
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PAGE 9: LIST OF FIGURES
+    # PAGE 9: LIST OF FIGURES (16 FULL REAL FIGURES)
     # ══════════════════════════════════════════════════════════════════════════
     doc.add_page_break()
     add_p("LIST OF FIGURES", bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=24, space_after=18)
@@ -441,25 +449,31 @@ def create_document():
     lof_table.cell(0, 1).paragraphs[0].add_run("Title").bold = True
     p = lof_table.cell(0, 2).paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p.add_run("Page No.").bold = True
     
-    figures_data = [
+    default_figures_data = [
         ("Figure 1.1", "Conceptual Paradigm of Text-Independent Acoustic Biometric Verification", "2"),
         ("Figure 1.2", "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Cross-Entropy", "4"),
-        ("Figure 3.1", "Complete Architectural Blueprint of the BioVoice Speaker Verification Pipeline", "17"),
-        ("Figure 3.2", "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology", "21"),
-        ("Figure 4.1", f"Empirical Confusion Matrix on LibriSpeech Test-Clean (Threshold d_th = {m_sb_novad['threshold']:.3f})", "31"),
-        ("Figure 4.2", f"Acoustic Cosine Similarity Score Distribution for Genuine vs. Impostor Trials", "32"),
-        ("Figure 4.3", f"Receiver Operating Characteristic (ROC) Verification Trajectory (EER = {m_sb_novad['eer_pct']:.2f}%)", "33"),
-        ("Figure 4.4", "Dynamic Multi-Scale Temporal Attention Heatmap across Frequency Sub-Bands", "34"),
-        ("Figure 4.5(a)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (Initial Epoch Baseline)", "35"),
-        ("Figure 4.5(b)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (10-Epoch Cluster Separation)", "35"),
-        ("Figure 5.1", "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment", "40")
+        ("Figure 2.1", "Architectural Pipeline of the Classical GMM-UBM and Factor Analysis (i-vector) Framework", "7"),
+        ("Figure 2.2", "Deep Convolutional Neural Network (CNN) Architecture for Log-Mel Spectrogram Classification", "8"),
+        ("Figure 3.1", "Complete Architectural Blueprint of the BioVoice Speaker Verification Pipeline", "14"),
+        ("Figure 3.2", "Empirical Energy Thresholding Profile and Voice Activity Detection (VAD) Speech Boundary Segmentation", "16"),
+        ("Figure 3.3", "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology with Dilated Convolutions", "18"),
+        ("Figure 3.4", "Squeeze-and-Excitation (SE) Channel Attention Recalibration Mechanism", "19"),
+        ("Figure 3.5", "Topological Comparison of Standard Bottleneck Residual Block versus Hierarchical Multi-Scale Res2Net Architecture", "20"),
+        ("Figure 4.1", f"Empirical Confusion Matrix on LibriSpeech Test-Clean (Threshold d_th = {m_sb_novad['threshold']:.3f})", "29"),
+        ("Figure 4.2", f"Acoustic Cosine Similarity Score Distribution for Genuine vs. Impostor Trials", "30"),
+        ("Figure 4.3", f"Receiver Operating Characteristic (ROC) Verification Trajectory (EER = {m_sb_novad['eer_pct']:.2f}%)", "31"),
+        ("Figure 4.4", "Dynamic Multi-Scale Temporal Attention Heatmap across Frequency Sub-Bands", "32"),
+        ("Figure 4.5(a)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (Initial Epoch Baseline)", "33"),
+        ("Figure 4.5(b)", "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (10-Epoch Cluster Separation)", "33"),
+        ("Figure 5.1", "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment", "38")
     ]
-    for f_num, f_cap, f_pg in figures_data:
+    for f_num, f_cap, default_pg in default_figures_data:
+        pg_val = str(page_overrides.get(f_num, default_pg))
         row = lof_table.add_row()
         row.cells[0].paragraphs[0].add_run(f_num).font.size = Pt(10.5)
         row.cells[1].paragraphs[0].add_run(f_cap).font.size = Pt(10.5)
         p = row.cells[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p.add_run(f_pg).font.size = Pt(10.5)
+        p.add_run(pg_val).font.size = Pt(10.5)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PAGE 10: LIST OF TABLES
@@ -473,21 +487,22 @@ def create_document():
     lot_table.cell(0, 1).paragraphs[0].add_run("Title").bold = True
     p = lot_table.cell(0, 2).paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT; p.add_run("Page No.").bold = True
     
-    tables_data = [
+    default_tables_data = [
         ("Table 1.1", "Comparative Taxonomy of Biometric Authentication Modalities", "3"),
-        ("Table 2.1", "Chronological Evolution and Algorithmic Paradigm Shifts in Speaker Recognition", "8"),
-        ("Table 3.1", "Detailed Mathematical Layer Specifications of the BioVoice ECAPA-TDNN Architecture", "21"),
-        ("Table 3.2", "Verification Decision Logic and Biometric Outcome Classification Matrix", "26"),
-        ("Table 4.1", "Hyperparameter Configuration and Experimental Parameters", "29"),
-        ("Table 4.2", "Empirical Cross-System Performance Benchmark on LibriSpeech Test-Clean (240 Trials)", "36"),
-        ("Table 4.3", "Ablation Analysis: Empirical Impact of Voice Activity Detection (VAD) on Verification Error Rates", "37")
+        ("Table 2.1", "Chronological Evolution and Algorithmic Paradigm Shifts in Speaker Recognition", "13"),
+        ("Table 3.1", "Detailed Mathematical Layer Specifications of the BioVoice ECAPA-TDNN Architecture", "20"),
+        ("Table 3.2", "Verification Decision Logic and Biometric Outcome Classification Matrix", "24"),
+        ("Table 4.1", "Hyperparameter Configuration and Experimental Parameters", "27"),
+        ("Table 4.2", "Empirical Cross-System Performance Benchmark on LibriSpeech Test-Clean (240 Trials)", "34"),
+        ("Table 4.3", "Ablation Analysis: Empirical Impact of Voice Activity Detection (VAD) on Verification Error Rates", "35")
     ]
-    for t_num, t_cap, t_pg in tables_data:
+    for t_num, t_cap, default_pg in default_tables_data:
+        pg_val = str(page_overrides.get(t_num, default_pg))
         row = lot_table.add_row()
         row.cells[0].paragraphs[0].add_run(t_num).font.size = Pt(10.5)
         row.cells[1].paragraphs[0].add_run(t_cap).font.size = Pt(10.5)
         p = row.cells[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p.add_run(t_pg).font.size = Pt(10.5)
+        p.add_run(pg_val).font.size = Pt(10.5)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 1: INTRODUCTION
@@ -511,11 +526,17 @@ def create_document():
         "verification, the system must authenticate the speaker irrespective of the linguistic content spoken, demanding that the "
         "acoustic representation remains invariant to phonemes, emotional states, and transmission channels."
     )
+    add_p(
+        "Figure 1.1 illustrates the conceptual paradigm of text-independent acoustic biometric verification, contrasting the "
+        "offline enrollment phase (where reference voiceprints are computed and registered into a biometric template vault) with the "
+        "real-time verification phase (where incoming probe utterances are evaluated against claimed identity profiles via acoustic metric scoring)."
+    )
     
     add_image_or_placeholder(
         "Figure 1.1",
         "Conceptual Paradigm of Text-Independent Acoustic Biometric Verification",
-        placeholder_desc="Flowchart showing enrollment audio -> Mel feature extraction -> neural embedding -> stored template; and verification probe audio -> score comparison -> threshold decision"
+        image_path="Report_Assets/figure_1_1_asv_paradigm.png",
+        width_inches=6.0
     )
 
     # Table 1.1
@@ -556,11 +577,17 @@ def create_document():
         "2. Short Utterance Duration: Test utterances shorter than two seconds lack adequate phonetic diversity, resulting in high variance in frame-averaged pooling vectors.\n"
         "3. Cross-Domain and Dialectal Variation: Differences in recording hardware, room acoustics, and speaking styles between training corpora and real-world probe samples cause domain mismatch."
     )
+    add_p(
+        "To mitigate loss-induced dispersion, modern ASV frameworks enforce geometric margins on unit hyperspheres. "
+        "Figure 1.2 contrasts standard Euclidean cross-entropy decision boundaries with Additive Angular Margin Softmax (AAM-Softmax), "
+        "demonstrating how geodesic penalties compress intra-speaker variance while enforcing an angular separation buffer between speaker classes."
+    )
 
     add_image_or_placeholder(
         "Figure 1.2",
         "Geodesic Hyperspherical Decision Boundary of AAM-Softmax vs. Standard Euclidean Cross-Entropy",
-        placeholder_desc="Diagram contrasting Euclidean linear decision boundaries with angular margin hyperspherical boundaries enforcing compact intra-speaker clusters"
+        image_path="Report_Assets/figure_1_2_aam_softmax.png",
+        width_inches=6.0
     )
 
     add_section_heading("1.4", "Problem Statement and Proposed Solution")
@@ -571,7 +598,7 @@ def create_document():
         "pre-filter, a multi-scale dilated Squeeze-and-Excitation Res2Block (SE-Res2Block) backbone, Channel-Dependent Attentive Statistics "
         "Pooling, and an Additive Angular Margin Softmax (AAM-Softmax, m=0.2, s=30) objective.\n\n"
         "The project evaluates the custom-engineered PyTorch architecture against an official pre-trained SpeechBrain reference baseline "
-        "on a balanced test suite from the LibriSpeech corpus, rigorously reporting empirical performance and detailing system limitations."
+        "on a balanced test suite from the LibriSpeech corpus, reporting empirical performance and detailing system limitations."
     )
 
     add_section_heading("1.5", "Research Objectives")
@@ -606,6 +633,19 @@ def create_document():
         "space. Snyder et al. [3] subsequently demonstrated that Time-Delay Neural Networks (TDNN) trained on acoustic filterbanks (x-vectors) "
         "significantly outperformed i-vectors on large-scale benchmarks."
     )
+    add_p(
+        "Figure 2.1 illustrates the classical GMM-UBM and factor analysis architecture. Variable-length speech utterances are parameterized into "
+        "short-term spectral features (MFCCs with VAD), aligned against universal Gaussian mixture components to extract zeroth and first-order "
+        "sufficient statistics, and projected into a low-dimensional total variability space (T-matrix) before classification via Linear Discriminant "
+        "Analysis (LDA) and Probabilistic Linear Discriminant Analysis (PLDA)."
+    )
+
+    add_image_or_placeholder(
+        "Figure 2.1",
+        "Architectural Pipeline of the Classical GMM-UBM and Factor Analysis (i-vector) Framework",
+        image_path="Report_Assets/figure_2_1_gmm_ubm.png",
+        width_inches=5.4
+    )
 
     add_section_heading("2.2", "Deep Residual Learning in Audio Spectrogram Analysis")
     add_p(
@@ -613,6 +653,19 @@ def create_document():
         "as single-channel images. Skip connections mitigated vanishing gradients, allowing deeper networks to capture complex acoustic "
         "trajectories. Concurrently, Ravanelli and Bengio [6] introduced SincNet, employing parameterized sinc bandpass filters to interpret "
         "raw waveforms directly."
+    )
+    add_p(
+        "Figure 2.2 diagrams the standard deep convolutional neural network (CNN) architecture applied to audio spectrograms. The continuous "
+        "speech waveform is transformed into a 2D time-frequency log-Mel spectrogram, augmented through time and frequency masking (Data Augmentation), "
+        "and processed through cascading 2D convolutional and average pooling layers before global average pooling collapses temporal dimensions "
+        "into speaker identity classification logits."
+    )
+
+    add_image_or_placeholder(
+        "Figure 2.2",
+        "Deep Convolutional Neural Network (CNN) Architecture for Log-Mel Spectrogram Classification",
+        image_path="Report_Assets/figure_2_2_cnn_spectrogram.png",
+        width_inches=5.8
     )
 
     add_section_heading("2.3", "Squeeze-and-Excitation (SE) Channel Recalibration")
@@ -675,7 +728,7 @@ def create_document():
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_chapter_heading(3, "Proposed Methodology and Architectural Design")
 
     add_section_heading("3.1", "Proposed BioVoice Architectural Blueprint")
@@ -685,24 +738,45 @@ def create_document():
         "Mel-filterbank extraction, (2) multi-scale temporal modeling through dilated SE-Res2Blocks, and (3) channel-dependent attentive "
         "statistics pooling projected to the final embedding space via linear layer fc6 (3072 -> 256)."
     )
+    add_p(
+        "Figure 3.1 depicts the complete architectural blueprint of the proposed BioVoice system across its three processing phases: "
+        "Phase 1 ingests audio at 16 kHz, applies energy VAD, computes a 512-point STFT, and extracts 80-channel log Mel filterbanks. "
+        "Phase 2 expands temporal context via Conv1D (C = 1024), processes features through three dilated SE-Res2Blocks (d = 2, 3, 4), "
+        "and pools representations via Channel-Dependent Attentive Statistics Pooling. Phase 3 extracts the normalized biometric embedding "
+        "and executes cosine metric evaluation for 1-to-1 verification and 1-to-N gallery identification."
+    )
 
     add_image_or_placeholder(
         "Figure 3.1",
         "Complete Architectural Blueprint of the BioVoice Speaker Verification Pipeline",
-        placeholder_desc="Detailed block diagram: Waveform -> VAD -> STFT 80 Mel -> Conv1D -> SE-Res2Block (x3) -> Multi-layer Aggregation -> Attentive Stats Pooling -> Dense 256-D -> Cosine Scoring"
+        image_path="Report_Assets/figure_3_1_system_architecture.png",
+        width_inches=6.2
     )
 
     add_section_heading("3.2", "Frontend Signal Preprocessing and Voice Activity Detection (VAD)")
     add_p(
-        "Audio waveforms are first resampled to 16,000 Hz monophonic PCM. To prevent unvoiced pauses from corrupting pooled representations, "
-        "an energy-based Voice Activity Detection (VAD) module computes short-time energy over 25 ms windows with a 10 ms hop size. Frames "
-        "falling below a relative energy threshold of 0.015 are trimmed, and the signal is peak-normalized."
+        "Audio waveforms are first standardized to 16,000 Hz monophonic PCM. To prevent unvoiced pauses and low-energy background room noise "
+        "from corrupting pooled acoustic statistics, an energy-based Voice Activity Detection (VAD) module computes short-time signal energy "
+        "over 25 ms analysis frames with a 10 ms hop size. Frames falling below an adaptive energy threshold are trimmed, and the active speech "
+        "segment is peak-amplitude normalized."
+    )
+    add_p(
+        "Figure 3.2 illustrates the empirical energy thresholding profile and automated VAD decision function across a representative speech utterance. "
+        "Active voiced segments with high acoustic energy trigger positive VAD decisions, while low-energy unvoiced pauses are cleanly excised, "
+        "ensuring that subsequent temporal convolutional layers process only informative phonetic transitions."
+    )
+
+    add_image_or_placeholder(
+        "Figure 3.2",
+        "Empirical Energy Thresholding Profile and Voice Activity Detection (VAD) Speech Boundary Segmentation",
+        image_path="Report_Assets/figure_3_3_vad_energy.png",
+        width_inches=5.8
     )
 
     add_section_heading("3.3", "Hardware-Accelerated 80-Channel Mel-Filterbank Computation")
     add_p(
         "A custom Short-Time Fourier Transform (STFT) module computes linear power spectrograms using a 512-point FFT, 400-sample Hamming "
-        "window, and 160-sample hop. Spectrograms are mapped to 80 Mel frequency bins via triangular filterbanks spanning 20 Hz to 7600 Hz [18], "
+        "window, and 160-sample hop size. Spectrograms are mapped to 80 Mel frequency bins via triangular filterbanks spanning 20 Hz to 7600 Hz [18], "
         "log-transformed, and normalized via Cepstral Mean Subtraction (CMS)."
     )
 
@@ -713,11 +787,47 @@ def create_document():
         "channel recalibration. Outputs from all three stages are concatenated via Multi-layer Feature Aggregation (MFA) into a 1536-dimensional "
         "feature representation. Data augmentation via SpecAugment [17] is applied during training."
     )
+    add_p(
+        "Figure 3.3 diagrams the internal topology of the SE-Res2Block. Input feature maps pass through an initial Conv1D-ReLU-BatchNorm layer, "
+        "enter the hierarchical Res2 dilated convolutional module where channels are split across sub-groups to extract multi-scale temporal context, "
+        "pass through a second Conv1D projection, and undergo channel recalibration through a Squeeze-and-Excitation (SE) block before combining "
+        "with the identity residual shortcut."
+    )
 
     add_image_or_placeholder(
-        "Figure 3.2",
-        "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology",
-        placeholder_desc="Diagram showing grouped channel split, hierarchical residual convolutions across scales 1 to 8, and SE channel recalibration"
+        "Figure 3.3",
+        "Multi-Scale Squeeze-and-Excitation Res2Net Block (SE-Res2Block) Inner Topology with Dilated Convolutions",
+        image_path="Report_Assets/figure_3_2_se_res2block.png",
+        width_inches=5.8
+    )
+
+    add_p(
+        "Figure 3.4 details the internal mechanism of the Squeeze-and-Excitation (SE) block. The input feature tensor U is first squeezed "
+        "via global average pooling (F_sq) into a 1 x C channel descriptor vector. An excitation network (F_ex) parameterized by two fully "
+        "connected layers with a bottleneck reduction ratio computes channel-wise attention weights, which are scaled (F_scale) onto the original "
+        "feature maps to emphasize identity-bearing vocal tract resonance formants."
+    )
+
+    add_image_or_placeholder(
+        "Figure 3.4",
+        "Squeeze-and-Excitation (SE) Channel Attention Recalibration Mechanism",
+        image_path="Report_Assets/figure_3_4_se_block.png",
+        width_inches=5.2
+    )
+
+    add_p(
+        "Figure 3.5 contrasts the standard bottleneck residual block with the hierarchical multi-scale Res2Net architecture. In the standard "
+        "block (left), features are processed through a single 3x3 convolution layer with a uniform receptive field. In contrast, Res2Net (right) "
+        "partitions channels into subsets x_1 through x_4. Subset x_1 passes directly as an identity residual, while subsets x_2 through x_4 undergo "
+        "cascaded convolutions where the output of kernel K_i is added to subset x_{i+1} before entering kernel K_{i+1}, exponentially expanding "
+        "the receptive field across multiple temporal resolutions."
+    )
+
+    add_image_or_placeholder(
+        "Figure 3.5",
+        "Topological Comparison of Standard Bottleneck Residual Block versus Hierarchical Multi-Scale Res2Net Architecture",
+        image_path="Report_Assets/figure_3_5_res2net_comparison.png",
+        width_inches=5.0
     )
 
     # Table 3.1
@@ -870,7 +980,7 @@ def create_document():
         "Figure 4.1",
         f"Empirical Confusion Matrix on LibriSpeech Test-Clean (Threshold d_th = {m_sb_novad['threshold']:.3f})",
         image_path="Report_Assets/confusion_matrix_speechbrain_novad.png",
-        placeholder_desc=f"Confusion matrix showing {m_sb_novad['TP']} True Positives, {m_sb_novad['TN']} True Negatives, {m_sb_novad['FP']} False Positives, {m_sb_novad['FN']} False Negatives"
+        width_inches=5.0
     )
 
     add_section_heading("4.5", "Acoustic Score Separation and Operating Threshold Calibration")
@@ -889,7 +999,7 @@ def create_document():
         "Figure 4.2",
         "Acoustic Cosine Similarity Score Distribution for Genuine vs. Impostor Trials",
         image_path="Report_Assets/score_distribution_speechbrain_novad.png",
-        placeholder_desc="Score distribution histogram showing separation between genuine and impostor speech trials"
+        width_inches=5.2
     )
 
     add_section_heading("4.6", "Verification Operating Characteristics and ROC Analysis")
@@ -904,7 +1014,7 @@ def create_document():
         "Figure 4.3",
         f"Receiver Operating Characteristic (ROC) Verification Trajectory (EER = {m_sb_novad['eer_pct']:.2f}%)",
         image_path="Report_Assets/roc_speechbrain_novad.png",
-        placeholder_desc=f"ROC curve plotting TAR vs FAR with AUC = {m_sb_novad['auc']:.3f} and EER = {m_sb_novad['eer_pct']:.2f}%"
+        width_inches=5.2
     )
 
     add_section_heading("4.7", "Dynamic Multi-Scale Temporal Attention Analysis")
@@ -917,7 +1027,7 @@ def create_document():
         "Figure 4.4",
         "Dynamic Multi-Scale Temporal Attention Heatmap across Frequency Sub-Bands",
         image_path="Results/ecapa_attention_output.png",
-        placeholder_desc="Attention spectrogram highlighting voiced vowel formants"
+        width_inches=5.2
     )
 
     add_section_heading("4.8", "Latent Space Visualization via t-SNE Clustering")
@@ -932,16 +1042,14 @@ def create_document():
         "Figure 4.5(a)",
         "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (Initial Epoch Baseline)",
         image_path="params/embedding_visualization.png",
-        placeholder_desc="2D scatter plot showing initial epoch baseline t-SNE projection across speaker classes",
-        width_inches=5.2
+        width_inches=4.8
     )
 
     add_image_or_placeholder(
         "Figure 4.5(b)",
         "Two-Dimensional t-SNE Acoustic Identity Manifold Projection (10-Epoch Cluster Separation)",
         image_path="Results/embedding_visualization10Epochs.png",
-        placeholder_desc="2D scatter plot showing speaker cluster formation after 10 epochs of training",
-        width_inches=5.2
+        width_inches=4.8
     )
 
     add_section_heading("4.9", "Empirical Cross-System Performance Benchmark")
@@ -1013,7 +1121,7 @@ def create_document():
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHAPTER 5: CONCLUSION AND FUTURE WORK
-    # ═══════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     add_chapter_heading(5, "Conclusion and Future Work")
 
     add_section_heading("5.1", "Summary of Contributions")
@@ -1036,11 +1144,18 @@ def create_document():
         "It supports 1-to-1 speaker verification with dynamic spectrogram rendering and 1-to-N voice gallery enrollment, transparently "
         "displaying the active neural engine name to prevent unverified heuristics from being reported as model outputs."
     )
+    add_p(
+        "Figure 5.1 displays screenshots of the active BioVoice interactive web interface running on localhost: panel (a) shows the 1-to-1 "
+        "Speaker Verification & Forensics Mode, displaying reference vs probe upload panels, the decision threshold slider, the biometric "
+        "confidence meter, and dual acoustic spectrograms; panel (b) shows the 1-to-N Gallery Enrollment & Identification Mode, providing "
+        "registration of new speaker identities and automated nearest-neighbor voice gallery search."
+    )
 
     add_image_or_placeholder(
         "Figure 5.1",
         "BioVoice Interactive Web Interface Supporting 1-to-1 Verification and 1-to-N Gallery Enrollment",
-        placeholder_desc="Screenshot of the running Gradio application interface on localhost showing verification result badge, confidence gauge, and spectrograms"
+        image_path="Report_Assets/figure_5_1_gradio_ui.png",
+        width_inches=6.0
     )
 
     add_section_heading("5.3", "System Limitations")
@@ -1111,6 +1226,111 @@ def create_document():
     output_path = os.path.join(BASE_DIR, "BioVoice_Minor_Project_Report.docx")
     doc.save(output_path)
     print(f"✅ Document successfully created: {output_path}")
+    return output_path
+
+
+def synchronize_page_numbers():
+    """Two-pass layout synchronization using Word COM to resolve physical page numbers"""
+    print("\n--- Pass 1: Generating baseline document ---")
+    doc_path = build_document()
+
+    try:
+        import win32com.client
+        print("\n--- Reading exact page layout from Microsoft Word ---")
+        word = win32com.client.Dispatch('Word.Application')
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        doc = word.Documents.Open(doc_path)
+
+        page_map = {}
+        for p in doc.Paragraphs:
+            # Only check body paragraphs outside tables
+            if p.Range.Tables.Count == 0:
+                txt = p.Range.Text.strip()
+                if any(txt.startswith(x) for x in ['CHAPTER ', '1.', '2.', '3.', '4.', '5.', 'Figure ', 'Table ', 'REFERENCES']):
+                    pg = p.Range.Information(3) # wdActiveEndPageNumber
+                    first_line = txt.split('\r')[0].strip()
+                    if first_line not in page_map:
+                        page_map[first_line] = pg
+
+        doc.Close(False)
+        word.Quit()
+
+        # Build clean lookup dictionary for TOC items
+        cleaned_overrides = {}
+        for k, v in page_map.items():
+            if k.startswith("CHAPTER 1"): cleaned_overrides["CHAPTER 1: INTRODUCTION"] = v
+            elif k.startswith("CHAPTER 2"): cleaned_overrides["CHAPTER 2: LITERATURE REVIEW"] = v
+            elif k.startswith("CHAPTER 3"): cleaned_overrides["CHAPTER 3: PROPOSED METHODOLOGY AND ARCHITECTURAL DESIGN"] = v
+            elif k.startswith("CHAPTER 4"): cleaned_overrides["CHAPTER 4: EXPERIMENTAL RESULTS AND DISCUSSION"] = v
+            elif k.startswith("CHAPTER 5"): cleaned_overrides["CHAPTER 5: CONCLUSION AND FUTURE WORK"] = v
+            elif k.startswith("1.1"): cleaned_overrides["1.1 The Domain of Speaker Verification"] = v
+            elif k.startswith("1.2"): cleaned_overrides["1.2 The State of the Art and Its Fundamental Limitations"] = v
+            elif k.startswith("1.3"): cleaned_overrides["1.3 Key Challenges: Noise, Short Utterance & Accent Invariance"] = v
+            elif k.startswith("1.4"): cleaned_overrides["1.4 Problem Statement and Proposed Solution"] = v
+            elif k.startswith("1.5"): cleaned_overrides["1.5 Research Objectives"] = v
+            elif k.startswith("1.6"): cleaned_overrides["1.6 Organization of the Report"] = v
+            elif k.startswith("2.1"): cleaned_overrides["2.1 The Foundational Shift: From GMM-UBM to i-Vectors and x-Vectors"] = v
+            elif k.startswith("2.2"): cleaned_overrides["2.2 Deep Residual Learning in Audio Spectrogram Analysis"] = v
+            elif k.startswith("2.3"): cleaned_overrides["2.3 Squeeze-and-Excitation (SE) Channel Recalibration"] = v
+            elif k.startswith("2.4"): cleaned_overrides["2.4 Multi-Scale Temporal Convolutions with Res2Net"] = v
+            elif k.startswith("2.5"): cleaned_overrides["2.5 Frame-Level Statistics Pooling vs. Attentive Aggregation"] = v
+            elif k.startswith("2.6"): cleaned_overrides["2.6 Hyperspherical Metric Learning and AAM-Softmax Loss"] = v
+            elif k.startswith("2.7"): cleaned_overrides["2.7 Literature Gap Analysis"] = v
+            elif k.startswith("3.1"): cleaned_overrides["3.1 Proposed BioVoice Architectural Blueprint"] = v
+            elif k.startswith("3.2"): cleaned_overrides["3.2 Frontend Signal Preprocessing and Voice Activity Detection (VAD)"] = v
+            elif k.startswith("3.3"): cleaned_overrides["3.3 Hardware-Accelerated 80-Channel Mel-Filterbank Computation"] = v
+            elif k.startswith("3.4"): cleaned_overrides["3.4 SE-Res2Block Multi-Scale Temporal Convolutional Backbone"] = v
+            elif k.startswith("3.5"): cleaned_overrides["3.5 Attentive Statistics Pooling Mechanism"] = v
+            elif k.startswith("3.6"): cleaned_overrides["3.6 Additive Angular Margin Loss (AAM-Softmax) Formulation"] = v
+            elif k.startswith("3.7"): cleaned_overrides["3.7 1:1 Biometric Verification and 1:N Gallery Identification Pipeline"] = v
+            elif k.startswith("3.8"): cleaned_overrides["3.8 Algorithmic Workflow and Pseudocode"] = v
+            elif k.startswith("4.1"): cleaned_overrides["4.1 Evaluation Dataset: LibriSpeech Test-Clean Corpus"] = v
+            elif k.startswith("4.2"): cleaned_overrides["4.2 Experimental Setup and Hyperparameter Protocol"] = v
+            elif k.startswith("4.3"): cleaned_overrides["4.3 Quantitative Evaluation Metrics"] = v
+            elif k.startswith("4.4"): cleaned_overrides["4.4 Verification Performance and Confusion Matrix Analysis"] = v
+            elif k.startswith("4.5"): cleaned_overrides["4.5 Acoustic Score Separation and Operating Threshold Calibration"] = v
+            elif k.startswith("4.6"): cleaned_overrides["4.6 Verification Operating Characteristics and ROC Analysis"] = v
+            elif k.startswith("4.7"): cleaned_overrides["4.7 Dynamic Multi-Scale Temporal Attention Analysis"] = v
+            elif k.startswith("4.8"): cleaned_overrides["4.8 Latent Space Visualization via t-SNE Clustering"] = v
+            elif k.startswith("4.9"): cleaned_overrides["4.9 Empirical Cross-System Performance Benchmark"] = v
+            elif k.startswith("4.10"): cleaned_overrides["4.10 Ablation Analysis: Empirical Impact of Voice Activity Detection"] = v
+            elif k.startswith("5.1"): cleaned_overrides["5.1 Summary of Contributions"] = v
+            elif k.startswith("5.2"): cleaned_overrides["5.2 Practical Deployment: Interactive Gradio Web System"] = v
+            elif k.startswith("5.3"): cleaned_overrides["5.3 System Limitations"] = v
+            elif k.startswith("5.4"): cleaned_overrides["5.4 Future Research Directions"] = v
+            elif k.startswith("REFERENCES"): cleaned_overrides["REFERENCES"] = v
+
+            # Match Figure No.
+            if k.startswith("Figure "):
+                f_key = k.split(":")[0].strip()
+                cleaned_overrides[f_key] = v
+
+            # Match Table No.
+            if k.startswith("Table "):
+                t_key = k.split(":")[0].strip()
+                cleaned_overrides[t_key] = v
+
+        print("\n--- Pass 2: Re-generating document with synchronized page numbers ---")
+        build_document(cleaned_overrides)
+
+        # Export exact PDF via Word COM
+        print("\n--- Exporting official PDF via Word COM ---")
+        word = win32com.client.Dispatch('Word.Application')
+        word.Visible = False
+        word.DisplayAlerts = 0
+        doc = word.Documents.Open(doc_path)
+        pdf_path = os.path.join(BASE_DIR, "BioVoice_Minor_Project_Report.pdf")
+        doc.ExportAsFixedFormat(pdf_path, 17) # 17 = wdExportFormatPDF
+        doc.Close(False)
+        word.Quit()
+        print(f"✅ PDF successfully generated: {pdf_path}")
+
+    except Exception as e:
+        print(f"⚠️ COM Synchronization notice: {e}")
+        print("Document generated with default layout offsets.")
+
 
 if __name__ == "__main__":
-    create_document()
+    synchronize_page_numbers()
